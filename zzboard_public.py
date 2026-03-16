@@ -69,60 +69,60 @@ GITHUB_RAW_URL = "https://raw.githubusercontent.com/wtfplutolol/zzboard-public/m
 # ── Themes ─────────────────────────────────────────────────────────────────────
 THEMES = {
     "green": {
-        "CLR_CLOCK": "#00FFB2", "CLR_CPU": "#FF6B6B", "CLR_MEM": "#FFD93D",
-        "CLR_WEATHER": "#6BCBFF", "CLR_MOON": "#E0E0FF", "CLR_DISK": "#A8FF78",
-        "CLR_TASKS": "#BD93F9", "CLR_PROCS": "#FF9F43", "CLR_SPEED": "#00CEC9",
-        "CLR_SNAKE": "#00FF00", "CLR_FLAPPY": "#FFD700", "CLR_DIM": "#555566",
+        "CLR_CLOCK":"#00FFB2","CLR_CPU":"#FF6B6B","CLR_MEM":"#FFD93D",
+        "CLR_WEATHER":"#6BCBFF","CLR_MOON":"#E0E0FF","CLR_DISK":"#A8FF78",
+        "CLR_TASKS":"#BD93F9","CLR_PROCS":"#FF9F43","CLR_SPEED":"#00CEC9",
+        "CLR_SNAKE":"#00FF00","CLR_FLAPPY":"#FFD700","CLR_DIM":"#555566",
     },
     "blue": {
-        "CLR_CLOCK": "#00BFFF", "CLR_CPU": "#87CEEB", "CLR_MEM": "#4169E1",
-        "CLR_WEATHER": "#00CED1", "CLR_MOON": "#E0E8FF", "CLR_DISK": "#1E90FF",
-        "CLR_TASKS": "#6495ED", "CLR_PROCS": "#00BFFF", "CLR_SPEED": "#40E0D0",
-        "CLR_SNAKE": "#00FF7F", "CLR_FLAPPY": "#87CEFA", "CLR_DIM": "#334455",
+        "CLR_CLOCK":"#00BFFF","CLR_CPU":"#87CEEB","CLR_MEM":"#4169E1",
+        "CLR_WEATHER":"#00CED1","CLR_MOON":"#E0E8FF","CLR_DISK":"#1E90FF",
+        "CLR_TASKS":"#6495ED","CLR_PROCS":"#00BFFF","CLR_SPEED":"#40E0D0",
+        "CLR_SNAKE":"#00FF7F","CLR_FLAPPY":"#87CEFA","CLR_DIM":"#334455",
     },
     "pink": {
-        "CLR_CLOCK": "#FF79C6", "CLR_CPU": "#FF6B9D", "CLR_MEM": "#FFB3DE",
-        "CLR_WEATHER": "#FF85C8", "CLR_MOON": "#FFE0F0", "CLR_DISK": "#FF69B4",
-        "CLR_TASKS": "#DA70D6", "CLR_PROCS": "#FF1493", "CLR_SPEED": "#FF82AB",
-        "CLR_SNAKE": "#FF69B4", "CLR_FLAPPY": "#FFB6C1", "CLR_DIM": "#553344",
+        "CLR_CLOCK":"#FF79C6","CLR_CPU":"#FF6B9D","CLR_MEM":"#FFB3DE",
+        "CLR_WEATHER":"#FF85C8","CLR_MOON":"#FFE0F0","CLR_DISK":"#FF69B4",
+        "CLR_TASKS":"#DA70D6","CLR_PROCS":"#FF1493","CLR_SPEED":"#FF82AB",
+        "CLR_SNAKE":"#FF69B4","CLR_FLAPPY":"#FFB6C1","CLR_DIM":"#553344",
     },
     "amber": {
-        "CLR_CLOCK": "#FFB000", "CLR_CPU": "#FF8C00", "CLR_MEM": "#FFD700",
-        "CLR_WEATHER": "#FFA500", "CLR_MOON": "#FFEEBB", "CLR_DISK": "#FFCC00",
-        "CLR_TASKS": "#FF9F43", "CLR_PROCS": "#FF6347", "CLR_SPEED": "#FFC125",
-        "CLR_SNAKE": "#ADFF2F", "CLR_FLAPPY": "#FFD700", "CLR_DIM": "#554433",
+        "CLR_CLOCK":"#FFB000","CLR_CPU":"#FF8C00","CLR_MEM":"#FFD700",
+        "CLR_WEATHER":"#FFA500","CLR_MOON":"#FFEEBB","CLR_DISK":"#FFCC00",
+        "CLR_TASKS":"#FF9F43","CLR_PROCS":"#FF6347","CLR_SPEED":"#FFC125",
+        "CLR_SNAKE":"#ADFF2F","CLR_FLAPPY":"#FFD700","CLR_DIM":"#554433",
     },
     "red": {
-        "CLR_CLOCK": "#FF4444", "CLR_CPU": "#FF6B6B", "CLR_MEM": "#FF8080",
-        "CLR_WEATHER": "#FF6666", "CLR_MOON": "#FFE0E0", "CLR_DISK": "#FF5555",
-        "CLR_TASKS": "#CC3333", "CLR_PROCS": "#FF0000", "CLR_SPEED": "#FF3333",
-        "CLR_SNAKE": "#FF6666", "CLR_FLAPPY": "#FFB3B3", "CLR_DIM": "#553333",
+        "CLR_CLOCK":"#FF4444","CLR_CPU":"#FF6B6B","CLR_MEM":"#FF8080",
+        "CLR_WEATHER":"#FF6666","CLR_MOON":"#FFE0E0","CLR_DISK":"#FF5555",
+        "CLR_TASKS":"#CC3333","CLR_PROCS":"#FF0000","CLR_SPEED":"#FF3333",
+        "CLR_SNAKE":"#FF6666","CLR_FLAPPY":"#FFB3B3","CLR_DIM":"#553333",
     },
 }
 
-# Active colors — will be updated by theme
 CLR = {}
 
 def apply_theme(name):
     global CLR
-    theme = THEMES.get(name, THEMES["green"])
-    CLR.update(theme)
+    CLR.update(THEMES.get(name, THEMES["green"]))
 
 # ── State ──────────────────────────────────────────────────────────────────────
-CPU_HIST    = deque([0.0] * 50, maxlen=50)
-MEM_HIST    = deque([0.0] * 50, maxlen=50)
-START_TIME  = datetime.now()
-console     = Console()
-reload_flag = threading.Event()
-current_tab = {"tab": 1}
+CPU_HIST        = deque([0.0] * 50, maxlen=50)
+MEM_HIST        = deque([0.0] * 50, maxlen=50)
+START_TIME      = datetime.now()
+console         = Console()
+reload_flag     = threading.Event()
+current_tab     = {"tab": 1}
 settings_cursor = {"pos": 0}
+settings_msg    = {"text": "", "color": "#00FFB2", "time": 0}
 
 weather_cache = {"data": None, "error": None, "last": 0}
 speed_cache   = {"download": None, "upload": None, "ping": None, "testing": False, "last": 0, "error": None}
-update_status = {"checked": False, "updated": False, "error": None, "log": [], "force": False}
+update_status = {"checked": False, "updated": False, "error": None, "log": []}
 weather_meta  = {"url": None, "city": "Unknown", "country": ""}
+_cfg_ref      = {}
 
-# ── Config helpers ─────────────────────────────────────────────────────────────
+# ── Config ─────────────────────────────────────────────────────────────────────
 
 DEFAULT_CONFIG = {
     "city": "", "theme": "green", "temp_unit": "F",
@@ -133,10 +133,10 @@ def load_config():
     try:
         with open(CONFIG_FILE, "r") as f:
             cfg = json.load(f)
-            for k, v in DEFAULT_CONFIG.items():
-                if k not in cfg:
-                    cfg[k] = v
-            return cfg
+        for k, v in DEFAULT_CONFIG.items():
+            if k not in cfg:
+                cfg[k] = v
+        return cfg
     except Exception:
         return dict(DEFAULT_CONFIG)
 
@@ -146,6 +146,15 @@ def save_config(cfg):
             json.dump(cfg, f, indent=2)
     except Exception:
         pass
+
+# ── Restart (safe, no antivirus triggers) ─────────────────────────────────────
+
+def do_restart():
+    """Safe restart that works on Windows without triggering antivirus."""
+    args = [THIS_FILE, "--no-splash"] if IS_EXE else [sys.executable, THIS_FILE, "--no-splash"]
+    subprocess.Popen(args, creationflags=subprocess.CREATE_NEW_CONSOLE if IS_EXE else 0)
+    time.sleep(1.0)
+    sys.exit(0)
 
 # ── First launch setup ─────────────────────────────────────────────────────────
 
@@ -169,7 +178,7 @@ def first_launch_setup():
     t.append("  Welcome! One-time setup\n\n", style=f"bold {CLR['CLR_CLOCK']}")
     console.print(Align.center(t))
 
-    city = console.input(f"  [{CLR['CLR_WEATHER']}]Your city for weather (e.g. London, Tokyo, New York):[/{CLR['CLR_WEATHER']}] ").strip()
+    city = console.input(f"  [{CLR['CLR_WEATHER']}]Your city for weather:[/{CLR['CLR_WEATHER']}] ").strip()
     if not city:
         city = "New York"
 
@@ -185,11 +194,11 @@ def first_launch_setup():
 MOON_ART = {
     "New Moon":        ["    _..._    ","  .' *** '.  "," / ******* \\ ","|  *******  |"," \\ ******* / ","  '._***_.'  ","    `---'    "],
     "Waxing Crescent": ["    _..._    ","  .'  ** '.  "," /    ***  \\ ","|     ****  |"," \\    ***  / ","  '.  **_.'  ","    `---'    "],
-    "First Quarter":   ["    _..._    ","  .'    '.   "," /    ### \\ ","|     ####  |"," \\    ### / ","  '._  _.'  ","    `---'    "],
+    "First Quarter":   ["    _..._    ","  .'    '.   "," /    ### \\ ","|     ####  |"," \\    ### / ","  '._  _.'   ","    `---'    "],
     "Waxing Gibbous":  ["    _..._    ","  .' ####'.  "," / ####### \\ ","| ########  |"," \\ ####### / ","  '.####_.'  ","    `---'    "],
     "Full Moon":       ["    _..._    ","  .#######.  "," /##########\\","|############|"," \\##########/","  '#######'  ","    `---'    "],
     "Waning Gibbous":  ["    _..._    ","  '.#####'.  "," /####### \\ ","|########   |"," \\####### / ","  '.#####.'  ","    `---'    "],
-    "Last Quarter":    ["    _..._    ","  .'###  '.  "," /####    \\ ","|#####      |"," \\####    / ","  '.###_.'  ","    `---'    "],
+    "Last Quarter":    ["    _..._    ","  .'###  '.  "," /####    \\ ","|#####      |"," \\####    / ","  '.###_.'   ","    `---'    "],
     "Waning Crescent": ["    _..._    ","  .' **  '.  "," /  ***    \\ ","|  ****     |"," \\  ***    / ","  '.  **_.'  ","    `---'    "],
 }
 
@@ -200,7 +209,7 @@ def get_moon_phase():
     names = ["New Moon","Waxing Crescent","First Quarter","Waxing Gibbous","Full Moon","Waning Gibbous","Last Quarter","Waning Crescent"]
     phase = names[int(pct * 8) % 8]
     illum = int(abs(math.sin(pct * math.pi)) * 100)
-    days_into = pct * 29.53
+    days_into    = pct * 29.53
     days_to_full = abs(int(14.765 - days_into if days_into < 14.765 else 29.53 - days_into + 14.765))
     return phase, illum, days_to_full
 
@@ -302,7 +311,7 @@ LOADING_STEPS = ["booting up...","checking for updates...","fetching weather..."
 GAME_W, GAME_H = 50, 22
 
 game_state = {
-    "mode": "none",
+    "mode":"none",
     "snake_body":[],"snake_dir":(1,0),"snake_food":(0,0),"snake_score":0,"snake_alive":True,
     "flappy_y":11.0,"flappy_vel":0.0,"flappy_pipes":[],"flappy_score":0,"flappy_alive":True,
 }
@@ -375,15 +384,14 @@ def render_flappy():
     else: t.append(f"\n  Score:{game_state['flappy_score']}   SPACE to flap   Q to quit\n",style=f"dim {CLR['CLR_FLAPPY']}")
     return t
 
-# ── Settings state ─────────────────────────────────────────────────────────────
-settings_msg = {"text": "", "color": "#00FFB2", "time": 0}
+# ── Settings ───────────────────────────────────────────────────────────────────
 
 SETTINGS_ITEMS = [
-    ("Theme",           "theme",          ["green","blue","pink","amber","red"]),
-    ("Temperature",     "temp_unit",      ["F","C"]),
-    ("Speed interval",  "speed_interval", [30, 60, 120, 0]),
-    ("Reset city",      "_reset_city",    None),
-    ("Force update",    "_force_update",  None),
+    ("Theme",          "theme",          ["green","blue","pink","amber","red"]),
+    ("Temperature",    "temp_unit",      ["F","C"]),
+    ("Speed interval", "speed_interval", [30, 60, 120, 0]),
+    ("Reset city",     "_reset_city",    None),
+    ("Force update",   "_force_update",  None),
 ]
 
 def settings_label(key, value):
@@ -394,7 +402,7 @@ def settings_label(key, value):
 def settings_panel(cfg):
     t = Text()
     t.append("\n")
-    t.append(f"  Use arrow keys to navigate   Enter to change\n\n", style=f"dim {CLR['CLR_DIM']}")
+    t.append("  Arrow keys to navigate   Left/Right or Enter to change\n\n", style=f"dim {CLR['CLR_DIM']}")
     pos = settings_cursor["pos"]
 
     for i, (label, key, options) in enumerate(SETTINGS_ITEMS):
@@ -403,14 +411,12 @@ def settings_panel(cfg):
         style    = f"bold {CLR['CLR_CLOCK']}" if selected else f"dim {CLR['CLR_DIM']}"
 
         if options is None:
-            # Action button
             t.append(prefix, style=style)
             t.append(f"{label}\n", style=style)
         else:
             val = cfg.get(key, options[0])
             t.append(prefix, style=style)
             t.append(f"{label:<20}", style=style)
-            # Show options with current highlighted
             for opt in options:
                 opt_str = settings_label(key, opt)
                 if opt == val:
@@ -419,11 +425,9 @@ def settings_panel(cfg):
                     t.append(f"  {opt_str}  ", style=f"dim {CLR['CLR_DIM']}")
             t.append("\n")
 
-    # Status message
     if settings_msg["text"] and time.time() - settings_msg["time"] < 3:
         t.append(f"\n  {settings_msg['text']}\n", style=f"bold {settings_msg['color']}")
 
-    # Theme preview
     t.append(f"\n  Theme preview:\n", style=f"dim {CLR['CLR_DIM']}")
     for name, colors in THEMES.items():
         marker = " [*]" if name == cfg.get("theme","green") else "  o "
@@ -431,72 +435,64 @@ def settings_panel(cfg):
 
     return Panel(t, title=f"[{CLR['CLR_CLOCK']}]> SETTINGS[/{CLR['CLR_CLOCK']}]", border_style=CLR["CLR_CLOCK"], box=box.ROUNDED)
 
-# ── Input handler ──────────────────────────────────────────────────────────────
-
-_cfg_ref = {}  # shared config reference for input thread
-
 def handle_settings_input(ch, cfg):
-    pos  = settings_cursor["pos"]
-    item = SETTINGS_ITEMS[pos]
-    label, key, options = item
+    import msvcrt
+    pos   = settings_cursor["pos"]
+    label, key, options = SETTINGS_ITEMS[pos]
 
     if ch in ("\x00", "\xe0"):
-        import msvcrt
         arrow = msvcrt.getwch()
-        if arrow == "H":  # up
+        if arrow == "H":
             settings_cursor["pos"] = (pos - 1) % len(SETTINGS_ITEMS)
-        elif arrow == "P":  # down
+        elif arrow == "P":
             settings_cursor["pos"] = (pos + 1) % len(SETTINGS_ITEMS)
-        elif arrow in ("K","M") and options:  # left/right cycle
-            val = cfg.get(key, options[0])
-            idx = options.index(val) if val in options else 0
+        elif arrow in ("K","M") and options:
+            val   = cfg.get(key, options[0])
+            idx   = options.index(val) if val in options else 0
             delta = -1 if arrow == "K" else 1
             new_val = options[(idx + delta) % len(options)]
             cfg[key] = new_val
             save_config(cfg)
-            if key == "theme":
-                apply_theme(new_val)
-            settings_msg.update({"text": f"Saved!", "color": CLR["CLR_CLOCK"], "time": time.time()})
+            if key == "theme": apply_theme(new_val)
+            settings_msg.update({"text": "Saved!", "color": CLR["CLR_CLOCK"], "time": time.time()})
         return
 
-    if ch == "\r":  # Enter
+    if ch == "\r":
         if key == "_reset_city":
             cfg["city"] = ""
             save_config(cfg)
             settings_msg.update({"text": "City reset! Restart to set new city.", "color": CLR["CLR_WEATHER"], "time": time.time()})
         elif key == "_force_update":
-            update_status.update({"checked": False, "updated": False, "error": None, "log": [], "force": True})
-            threading.Thread(target=lambda: [check_for_update(), None], daemon=True).start()
+            update_status.update({"checked": False, "updated": False, "error": None, "log": []})
+            threading.Thread(target=check_for_update, daemon=True).start()
             settings_msg.update({"text": "Checking for updates...", "color": CLR["CLR_SPEED"], "time": time.time()})
         elif options:
-            val = cfg.get(key, options[0])
-            idx = options.index(val) if val in options else 0
+            val     = cfg.get(key, options[0])
+            idx     = options.index(val) if val in options else 0
             new_val = options[(idx + 1) % len(options)]
             cfg[key] = new_val
             save_config(cfg)
-            if key == "theme":
-                apply_theme(new_val)
-            settings_msg.update({"text": f"Saved!", "color": CLR["CLR_CLOCK"], "time": time.time()})
+            if key == "theme": apply_theme(new_val)
+            settings_msg.update({"text": "Saved!", "color": CLR["CLR_CLOCK"], "time": time.time()})
+
+# ── Input handler ──────────────────────────────────────────────────────────────
 
 def input_loop():
     try:
         import msvcrt
         while True:
             if msvcrt.kbhit():
-                ch  = msvcrt.getwch()
-                key = ch.lower()
+                ch   = msvcrt.getwch()
+                key  = ch.lower()
                 mode = game_state["mode"]
 
-                # Tab switching
                 if key in ("1","2","3","4","5","6"):
                     current_tab["tab"] = int(key)
                     if key != "5": game_state["mode"] = "none"
 
-                # Settings navigation (only on tab 6)
                 elif current_tab["tab"] == 6:
                     handle_settings_input(ch, _cfg_ref)
 
-                # Game launch
                 elif key == "s":
                     if mode != "snake": current_tab["tab"]=5; game_state["mode"]="snake"; snake_init()
                     elif not game_state["snake_alive"]: snake_init()
@@ -506,19 +502,17 @@ def input_loop():
                 elif key == "q":
                     game_state["mode"] = "none"
 
-                # Snake controls
                 elif mode == "snake":
                     if key=="a" and game_state["snake_dir"]!=(1,0): game_state["snake_dir"]=(-1,0)
                     elif key=="d" and game_state["snake_dir"]!=(-1,0): game_state["snake_dir"]=(1,0)
                     elif key=="w" and game_state["snake_dir"]!=(0,1): game_state["snake_dir"]=(0,-1)
                     elif ch in ("\x00","\xe0"):
-                        import msvcrt; a=msvcrt.getwch()
+                        a=msvcrt.getwch()
                         if a=="H" and game_state["snake_dir"]!=(0,1): game_state["snake_dir"]=(0,-1)
                         elif a=="P" and game_state["snake_dir"]!=(0,-1): game_state["snake_dir"]=(0,1)
                         elif a=="K" and game_state["snake_dir"]!=(1,0): game_state["snake_dir"]=(-1,0)
                         elif a=="M" and game_state["snake_dir"]!=(-1,0): game_state["snake_dir"]=(1,0)
 
-                # Flappy controls
                 elif mode == "flappy":
                     if key in (" ","w"): game_state["flappy_vel"]=-2.8
 
@@ -549,10 +543,6 @@ def file_hash(path):
         with open(path,"rb") as f: return hashlib.md5(f.read()).hexdigest()
     except Exception: return None
 
-def do_restart():
-    subprocess.Popen([sys.executable if not IS_EXE else THIS_FILE, *([] if IS_EXE else [THIS_FILE]), "--no-splash"])
-    sys.exit(0)
-
 def smooth_bar(pct, width, color):
     t=Text(); fill=int(pct/100*width)
     t.append("[",style=f"dim {CLR['CLR_DIM']}"); t.append("#"*fill,style=f"bold {color}"); t.append("-"*(width-fill),style=f"dim {CLR['CLR_DIM']}"); t.append("]",style=f"dim {CLR['CLR_DIM']}")
@@ -575,9 +565,12 @@ def check_for_update():
             update_status["log"].append("update found! downloading...")
             time.sleep(0.4)
             with open(script_path,"w",encoding="utf-8") as f: f.write(remote_code)
-            update_status["log"].append("update applied!"); update_status["updated"]=True
-        else: update_status["log"].append("already up to date.")
-    except Exception: update_status["log"].append("update check failed.")
+            update_status["log"].append("update applied!")
+            update_status["updated"]=True
+        else:
+            update_status["log"].append("already up to date.")
+    except Exception:
+        update_status["log"].append("update check failed.")
     update_status["checked"]=True
 
 def cat_screen(extra_line="", progress=None):
@@ -588,7 +581,9 @@ def cat_screen(extra_line="", progress=None):
     for line in CAT_FRAMES[int(time.time()*3)%len(CAT_FRAMES)]: t.append(line+"\n",style=CLR["CLR_CLOCK"])
     t.append("\n"); t.append(f"  {extra_line}\n",style=f"dim {CLR['CLR_WEATHER']}")
     if progress is not None:
-        fill=int(progress); t.append("\n  [",style=f"dim {CLR['CLR_DIM']}"); t.append("#"*fill,style=CLR["CLR_CLOCK"]); t.append("-"*(36-fill),style=f"dim {CLR['CLR_DIM']}"); t.append("]\n",style=f"dim {CLR['CLR_DIM']}")
+        fill=int(progress)
+        t.append("\n  [",style=f"dim {CLR['CLR_DIM']}"); t.append("#"*fill,style=CLR["CLR_CLOCK"])
+        t.append("-"*(36-fill),style=f"dim {CLR['CLR_DIM']}"); t.append("]\n",style=f"dim {CLR['CLR_DIM']}")
     return Align.center(t,vertical="middle")
 
 def show_update_screen():
@@ -632,14 +627,12 @@ def run_speed_test():
     except Exception as e: speed_cache["error"]=str(e)[:40]
     finally: speed_cache["testing"]=False
 
-def fetch_speed(interval_mins):
+def fetch_speed():
     run_speed_test()
     while True:
-        mins = _cfg_ref.get("speed_interval", interval_mins)
-        if mins == 0:
-            time.sleep(60); continue
-        time.sleep(mins * 60)
-        run_speed_test()
+        mins=_cfg_ref.get("speed_interval",30)
+        if mins==0: time.sleep(60); continue
+        time.sleep(mins*60); run_speed_test()
 
 # ── System panels ──────────────────────────────────────────────────────────────
 
@@ -784,20 +777,16 @@ def main():
     parser.add_argument("--no-splash",action="store_true")
     args=parser.parse_args()
 
-    # Apply default theme first so splash works
     apply_theme("green")
 
     cfg=load_config()
     if not cfg.get("city"): cfg=first_launch_setup()
 
-    # Apply saved theme
     apply_theme(cfg.get("theme","green"))
-
-    # Share config with input thread
     _cfg_ref.update(cfg)
 
     threading.Thread(target=lambda:fetch_weather(cfg["city"]),daemon=True).start()
-    threading.Thread(target=lambda:fetch_speed(cfg.get("speed_interval",30)),daemon=True).start()
+    threading.Thread(target=fetch_speed,daemon=True).start()
     threading.Thread(target=input_loop,daemon=True).start()
     threading.Thread(target=game_loop,daemon=True).start()
     psutil.cpu_percent(interval=0.1,percpu=True)
@@ -807,10 +796,17 @@ def main():
         show_update_screen()
         show_splash()
 
+    # If updated during splash, restart now
+    if update_status["updated"]:
+        do_restart()
+
     try:
         with Live(build_layout(_cfg_ref),console=console,refresh_per_second=4,screen=True) as live:
             while True:
                 if reload_flag.is_set(): do_restart()
+                # Check if force update was applied
+                if update_status.get("updated") and update_status.get("checked"):
+                    do_restart()
                 time.sleep(0.25)
                 live.update(build_layout(_cfg_ref))
     except KeyboardInterrupt:
