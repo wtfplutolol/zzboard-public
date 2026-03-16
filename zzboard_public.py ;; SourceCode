@@ -192,6 +192,7 @@ settings_cursor = {"pos": 0, "section": "main"}
 settings_msg    = {"text": "", "color": "#FF79C6", "time": 0}
 key_queue       = []
 key_lock        = threading.Lock()
+input_active    = {"v": False}
 last_key_time   = {"t": time.time()}
 screensaver_on  = {"v": False}
 ip_visible      = {"v": False}
@@ -271,6 +272,9 @@ def key_reader():
     try:
         import msvcrt
         while True:
+            if input_active["v"]:
+                time.sleep(0.05)
+                continue
             if msvcrt.kbhit():
                 ch = msvcrt.getwch()
                 last_key_time["t"] = time.time()
@@ -291,6 +295,49 @@ def get_keys():
         keys = list(key_queue)
         key_queue.clear()
     return keys
+
+def safe_input(prompt):
+    """Read input char by char showing letters as typed. Pauses key reader."""
+    import sys
+    input_active["v"] = True
+    time.sleep(0.1)
+    with key_lock:
+        key_queue.clear()
+
+    sys.stdout.write(prompt)
+    sys.stdout.flush()
+
+    result = []
+    try:
+        import msvcrt
+        while True:
+            ch = msvcrt.getwch()
+            if ch in ("\r", "\n"):
+                sys.stdout.write("\n")
+                sys.stdout.flush()
+                break
+            elif ch in ("\x08", "\x7f"):
+                if result:
+                    result.pop()
+                    sys.stdout.write("\b \b")
+                    sys.stdout.flush()
+            elif ch == "\x03":
+                break
+            elif ch in ("\x00", "\xe0"):
+                msvcrt.getwch()
+            elif ch.isprintable():
+                result.append(ch)
+                sys.stdout.write(ch)
+                sys.stdout.flush()
+    except Exception:
+        pass
+    finally:
+        time.sleep(0.15)
+        with key_lock:
+            key_queue.clear()
+        input_active["v"] = False
+
+    return "".join(result).strip()
 
 # ── IP fetching ────────────────────────────────────────────────────────────────
 def fetch_ip():
@@ -513,9 +560,9 @@ def cat_panel(cfg):
             t.append(f"  {song}\n",      style=f"dim {CLR['CLR_SPOTIFY']}")
             t.append(f"  {artist}\n\n",  style=f"dim {CLR['CLR_DIM']}")
         except Exception:
-            t.append("\n\n\n")
+            t.append("\n")
     else:
-        t.append("\n\n\n")
+        t.append("\n")
 
     # Indicators
     if is_playing:   t.append("  * music *\n",   style=f"bold {CLR['CLR_SPOTIFY']}")
@@ -570,7 +617,7 @@ def change_city_in_place(cfg):
     console.clear()
     console.print(f"\n  [{CLR['CLR_CLOCK']}]Change City[/{CLR['CLR_CLOCK']}]")
     console.print(f"  [{CLR['CLR_DIM']}](current: {cfg.get('city','not set')})[/{CLR['CLR_DIM']}]\n")
-    city_input = console.input(f"  [{CLR['CLR_WEATHER']}]Enter new city:[/{CLR['CLR_WEATHER']}] ").strip()
+    city_input = safe_input(f"  [{CLR['CLR_WEATHER']}]Enter new city:[/{CLR['CLR_WEATHER']}] ")
     time.sleep(0.1)
     with key_lock: key_queue.clear()
     if not city_input:
@@ -589,7 +636,7 @@ def change_city_in_place(cfg):
             name=r.get("name",""); state=r.get("admin1",""); country=r.get("country","")
             console.print(f"  [{CLR['CLR_WEATHER']}]{i+1}.[/{CLR['CLR_WEATHER']}] {name}, {state}, {country}")
         while True:
-            pick=console.input(f"\n  [{CLR['CLR_CLOCK']}]Pick (1-{min(5,len(results))}):[/{CLR['CLR_CLOCK']}] ").strip()
+            pick=safe_input(f"\n  [{CLR['CLR_CLOCK']}]Pick (1-{min(5,len(results))}):[/{CLR['CLR_CLOCK']}] ")
             if pick.isdigit() and 1<=int(pick)<=min(5,len(results)): chosen=results[int(pick)-1]; break
             console.print(f"  [bold #FF4444]Invalid choice.[/bold #FF4444]")
     name=chosen.get("name",city_input); state=chosen.get("admin1",""); country=chosen.get("country_code","")
@@ -969,9 +1016,7 @@ def process_settings_key(ktype,kval,cfg):
                 console.clear()
                 console.print(f"\n  [{CLR['CLR_CLOCK']}]Enter your cat's name[/{CLR['CLR_CLOCK']}]")
                 console.print(f"  [{CLR['CLR_DIM']}](current: {cfg.get('cat_name','cat')})[/{CLR['CLR_DIM']}]\n")
-                val=console.input(f"  [{CLR['CLR_CAT']}]>[/{CLR['CLR_CAT']}] ").strip()
-                time.sleep(0.1)
-                with key_lock: key_queue.clear()
+                val=safe_input(f"  [{CLR['CLR_CAT']}]>[/{CLR['CLR_CAT']}] ")
                 if val:
                     cfg["cat_name"]=val; save_config(cfg)
                     settings_msg.update({"text":f"The cat is now named {val}","color":CLR["CLR_CAT"],"time":time.time()})
@@ -981,9 +1026,7 @@ def process_settings_key(ktype,kval,cfg):
                 console.clear()
                 console.print(f"\n  [{CLR['CLR_CLOCK']}]Enter {label}[/{CLR['CLR_CLOCK']}]")
                 console.print(f"  [{CLR['CLR_DIM']}](current: {cfg.get(key,'not set')[:20]})[/{CLR['CLR_DIM']}]\n")
-                val=console.input(f"  [{CLR['CLR_WEATHER']}]>[/{CLR['CLR_WEATHER']}] ").strip()
-                time.sleep(0.1)
-                with key_lock: key_queue.clear()
+                val=safe_input(f"  [{CLR['CLR_WEATHER']}]>[/{CLR['CLR_WEATHER']}] ")
                 if val:
                     cfg[key]=val; save_config(cfg)
                     cid=cfg.get("spotify_client_id",""); cs=cfg.get("spotify_client_secret","")
@@ -1292,7 +1335,8 @@ def clock_panel(cfg):
     t.append(fmt_time(now,cfg.get("time_format","24")),style=f"bold {CLR['CLR_CLOCK']}")
     t.append("\n"); t.append(now.strftime("%A, %d %B %Y").lower(),style=f"dim {CLR['CLR_WEATHER']}")
     t.append(f"\n  {days_until_weekend()}",style=f"italic dim {CLR['CLR_DIM']}")
-    t.append(f"\n  {cat_uptime_msg} {uptime_str()}",style=f"italic dim {CLR['CLR_DIM']}"); t.append("\n")
+    t.append(f"\n  {cat_uptime_msg} {uptime_str()}",style=f"italic dim {CLR['CLR_DIM']}")
+    t.append(f"  |  made by @wtfplutolol with <3",style=f"italic dim {CLR['CLR_DIM']}"); t.append("\n")
     return Panel(t,title=f"[{CLR['CLR_CLOCK']}]  -- Z Z B O A R D  {CURRENT_VERSION} -- {time_greeting()} --  [/{CLR['CLR_CLOCK']}]",border_style=CLR["CLR_CLOCK"],box=box.DOUBLE,padding=(0,2))
 
 def cpu_panel():
@@ -1392,7 +1436,7 @@ def build_tab1(cfg):
         layout["bottom"].split_row(Layout(name="spotify",ratio=2),Layout(name="cat",ratio=1))
         layout["spotify"].update(spotify_panel()); layout["cat"].update(cat_panel(cfg))
     else:
-        layout.split_column(Layout(name="clock",size=8),Layout(name="stats",ratio=2),Layout(name="cat_row",ratio=1))
+        layout.split_column(Layout(name="clock",size=8),Layout(name="stats",ratio=2),Layout(name="cat_row",ratio=2))
         layout["stats"].split_row(Layout(name="cpu",ratio=1),Layout(name="mem",ratio=1))
         layout["cat_row"].split_row(Layout(name="cat",ratio=1),Layout(name="ip",ratio=1))
         layout["cat"].update(cat_panel(cfg)); layout["ip"].update(ip_panel())
@@ -1530,7 +1574,7 @@ def first_launch_setup():
     t.append("  Welcome! Let's get you set up.\n\n",style=f"bold {CLR['CLR_CLOCK']}")
     console.print(Align.center(t))
     while True:
-        city_input=console.input(f"  [{CLR['CLR_WEATHER']}]What city are you in?[/{CLR['CLR_WEATHER']}] ").strip()
+        city_input=safe_input(f"  [{CLR['CLR_WEATHER']}]What city are you in?[/{CLR['CLR_WEATHER']}] ")
         if not city_input: city_input="New York"
         console.print(f"  [{CLR['CLR_DIM']}]Looking that up...[/{CLR['CLR_DIM']}]")
         results=search_cities(city_input)
@@ -1544,7 +1588,7 @@ def first_launch_setup():
                 pop=r.get("population",0); pop_str=f"  pop {pop:,}" if pop else ""
                 console.print(f"  [{CLR['CLR_WEATHER']}]{i+1}.[/{CLR['CLR_WEATHER']}] {name}, {state}, {country}{pop_str}")
             while True:
-                pick=console.input(f"\n  [{CLR['CLR_CLOCK']}]Pick a number (1-{len(results)}):[/{CLR['CLR_CLOCK']}] ").strip()
+                pick=safe_input(f"\n  [{CLR['CLR_CLOCK']}]Pick a number (1-{len(results)}):[/{CLR['CLR_CLOCK']}] ")
                 if pick.isdigit() and 1<=int(pick)<=len(results): chosen=results[int(pick)-1]; break
                 console.print(f"  [bold #FF4444]Invalid choice. Try again.[/bold #FF4444]")
         name=chosen.get("name",city_input); state=chosen.get("admin1",""); country=chosen.get("country_code","")
