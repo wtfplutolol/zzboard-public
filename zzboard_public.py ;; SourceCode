@@ -193,6 +193,7 @@ settings_msg    = {"text": "", "color": "#FF79C6", "time": 0}
 key_queue       = []
 key_lock        = threading.Lock()
 input_active    = {"v": False}
+rendering_paused = {"v": False}
 last_key_time   = {"t": time.time()}
 screensaver_on  = {"v": False}
 ip_visible      = {"v": False}
@@ -296,21 +297,45 @@ def get_keys():
         key_queue.clear()
     return keys
 
-def safe_input(prompt):
-    """Read input char by char showing letters as typed. Pauses key reader."""
-    import sys
-    input_active["v"] = True
-    time.sleep(0.1)
+def safe_input(prompt, label="typing..."):
+    """Live typing with flashing cursor — updates display on every keypress."""
+    import sys, re, threading as _th
+    input_active["v"]     = True
+    rendering_paused["v"] = True
+    time.sleep(0.15)
     with key_lock:
         key_queue.clear()
 
-    sys.stdout.write(prompt)
-    sys.stdout.flush()
+    result   = []
+    done_evt = _th.Event()
 
-    result = []
+    def redraw():
+        """Redraw the input line with flashing cursor."""
+        cursor = ">" if int(time.time() * 2) % 2 == 0 else " "
+        text   = "".join(result)
+        # Move to start of line, clear it, redraw
+        sys.stdout.write(f"\r  {cursor} {text}_  ")
+        sys.stdout.flush()
+
+    # Print header
+    clean_label = re.sub(r'\[/?[^\]]+\]', '', label)
+    sys.stdout.write(f"\n\n  [ {clean_label} ]\n\n")
+    sys.stdout.flush()
+    redraw()
+
+    # Background cursor blink thread
+    def blink_loop():
+        while not done_evt.is_set():
+            redraw()
+            time.sleep(0.4)
+    _th.Thread(target=blink_loop, daemon=True).start()
+
     try:
         import msvcrt
         while True:
+            if not msvcrt.kbhit():
+                time.sleep(0.02)
+                continue
             ch = msvcrt.getwch()
             if ch in ("\r", "\n"):
                 sys.stdout.write("\n")
@@ -319,23 +344,33 @@ def safe_input(prompt):
             elif ch in ("\x08", "\x7f"):
                 if result:
                     result.pop()
-                    sys.stdout.write("\b \b")
-                    sys.stdout.flush()
+                    redraw()
             elif ch == "\x03":
+                result.clear()
                 break
             elif ch in ("\x00", "\xe0"):
                 msvcrt.getwch()
             elif ch.isprintable():
                 result.append(ch)
-                sys.stdout.write(ch)
-                sys.stdout.flush()
+                redraw()
     except Exception:
         pass
     finally:
-        time.sleep(0.15)
+        done_evt.set()
+        time.sleep(0.2)
         with key_lock:
             key_queue.clear()
-        input_active["v"] = False
+        try:
+            import msvcrt
+            while msvcrt.kbhit():
+                msvcrt.getwch()
+        except Exception:
+            pass
+        input_active["v"]     = False
+        rendering_paused["v"] = False
+        time.sleep(0.1)
+        with key_lock:
+            key_queue.clear()
 
     return "".join(result).strip()
 
@@ -539,7 +574,7 @@ def get_cat_pose():
 
     return CAT_BASE
 
-def cat_panel(cfg):
+def cat_panel(cfg, compact=False):
     cat_name   = cfg.get("cat_name","cat")
     cpu_pct    = psutil.cpu_percent(interval=None)
     hour       = datetime.now().hour
@@ -551,20 +586,17 @@ def cat_panel(cfg):
     t = Text(justify="center")
     t.append("\n")
 
-    # Song info above cat
-    if is_playing:
+    # Only show song info if NOT in compact mode (compact = Spotify has its own panel)
+    if not compact and is_playing:
         try:
-            song   = pb["item"]["name"][:22]
-            artist = pb["item"]["artists"][0]["name"][:20]
-            t.append(f"  now playing\n", style=f"bold {CLR['CLR_SPOTIFY']}")
-            t.append(f"  {song}\n",      style=f"dim {CLR['CLR_SPOTIFY']}")
-            t.append(f"  {artist}\n\n",  style=f"dim {CLR['CLR_DIM']}")
+            song   = pb["item"]["name"][:20]
+            artist = pb["item"]["artists"][0]["name"][:18]
+            t.append(f"  {song}\n",  style=f"dim {CLR['CLR_SPOTIFY']}")
+            t.append(f"  {artist}\n",style=f"dim {CLR['CLR_DIM']}")
         except Exception:
-            t.append("\n")
-    else:
-        t.append("\n")
+            pass
 
-    # Indicators
+    # Indicators — keep compact
     if is_playing:   t.append("  * music *\n",   style=f"bold {CLR['CLR_SPOTIFY']}")
     if is_paused:    t.append("  [ paused ]\n",  style=f"dim {CLR['CLR_DIM']}")
     if cpu_pct > 85: t.append("  ! cpu high !\n",style=f"bold #FF4444")
@@ -574,9 +606,13 @@ def cat_panel(cfg):
     zframes = ["  z z z  ","   Z z z  ","    Z Z z  ","   z Z z  "]
     t.append(f"{zframes[int(time.time()*1.5)%len(zframes)]}\n",style=f"dim {CLR['CLR_CAT']}")
 
-    # Cat pose
-    for line in get_cat_pose():
-        t.append(f"{line}\n",style=f"bold {CLR['CLR_CAT']}")
+    # Cat pose — always render
+    try:
+        for line in get_cat_pose():
+            t.append(f"{line}\n",style=f"bold {CLR['CLR_CAT']}")
+    except Exception:
+        for line in CAT_BASE:
+            t.append(f"{line}\n",style=f"bold {CLR['CLR_CAT']}")
 
     t.append(f"\n  {cat_name}\n",style=f"italic dim {CLR['CLR_DIM']}")
 
@@ -590,7 +626,8 @@ def ip_panel():
     t=Text(); t.append("\n")
     if not ip_visible["v"]:
         t.append("  IP addresses are hidden\n\n",style=f"dim {CLR['CLR_DIM']}")
-        t.append("  Press H to reveal\n",style=f"dim {CLR['CLR_CLOCK']}")
+        t.append("  H  reveal IP\n",  style=f"dim {CLR['CLR_CLOCK']}")
+        t.append("  C  copy stats\n", style=f"dim {CLR['CLR_CLOCK']}")
     else:
         pub=ip_cache.get("public") or "fetching..."
         loc=ip_cache.get("local")  or "fetching..."
@@ -599,8 +636,11 @@ def ip_panel():
         t.append(f"  local    {loc}\n",style=f"bold {CLR['CLR_CLOCK']}")
         t.append(f"\n  ISP\n",style=f"dim {CLR['CLR_DIM']}")
         t.append(f"  {isp[:30]}\n",style=f"dim {CLR['CLR_CLOCK']}")
-        t.append(f"\n  Press H to hide\n",style=f"dim {CLR['CLR_DIM']}")
-    return Panel(t,title=f"[{CLR['CLR_CLOCK']}]> ip[/{CLR['CLR_CLOCK']}]",border_style=CLR["CLR_CLOCK"],box=box.ROUNDED)
+        t.append(f"\n  H  hide IP\n",     style=f"dim {CLR['CLR_DIM']}")
+        t.append(f"  C  copy IP info\n", style=f"dim {CLR['CLR_CLOCK']}")
+    if clipboard_msg["text"] and time.time()-clipboard_msg["time"]<3:
+        t.append(f"\n  {clipboard_msg['text']}\n",style=f"bold {CLR['CLR_CLOCK']}")
+    return Panel(t,title=f"[{CLR['CLR_CLOCK']}]> wifi  [H] toggle[/{CLR['CLR_CLOCK']}]",border_style=CLR["CLR_CLOCK"],box=box.ROUNDED)
 
 # ── City reset / change ────────────────────────────────────────────────────────
 def city_reset_countdown():
@@ -615,9 +655,9 @@ def city_reset_countdown():
 def change_city_in_place(cfg):
     """Change city without full restart — just re-fetch weather."""
     console.clear()
-    console.print(f"\n  [{CLR['CLR_CLOCK']}]Change City[/{CLR['CLR_CLOCK']}]")
+    console.print(f"\n  [bold #FF79C6]Change City[/bold #FF79C6]")
     console.print(f"  [{CLR['CLR_DIM']}](current: {cfg.get('city','not set')})[/{CLR['CLR_DIM']}]\n")
-    city_input = safe_input(f"  [{CLR['CLR_WEATHER']}]Enter new city:[/{CLR['CLR_WEATHER']}] ")
+    city_input = safe_input("  \033[38;2;255;121;198mEnter new city:\033[0m ")
     time.sleep(0.1)
     with key_lock: key_queue.clear()
     if not city_input:
@@ -628,15 +668,17 @@ def change_city_in_place(cfg):
     if not results:
         settings_msg.update({"text":f"Could not find '{city_input}'","color":"#FF4444","time":time.time()})
         return
+    results = sorted(results, key=lambda r: r.get("population", 0) or 0, reverse=True)
     if len(results)==1:
         chosen=results[0]
     else:
-        console.print(f"\n  [{CLR['CLR_CLOCK']}]Found multiple cities:[/{CLR['CLR_CLOCK']}]\n")
+        console.print(f"\n  [bold #FF79C6]Found multiple cities:[/bold #FF79C6]\n")
         for i,r in enumerate(results[:5]):
             name=r.get("name",""); state=r.get("admin1",""); country=r.get("country","")
-            console.print(f"  [{CLR['CLR_WEATHER']}]{i+1}.[/{CLR['CLR_WEATHER']}] {name}, {state}, {country}")
+            pop=r.get("population",0); pop_str=f"  pop {pop:,}" if pop else ""
+            console.print(f"  [#FF79C6]{i+1}.[/#FF79C6] {name}, {state}, {country}{pop_str}")
         while True:
-            pick=safe_input(f"\n  [{CLR['CLR_CLOCK']}]Pick (1-{min(5,len(results))}):[/{CLR['CLR_CLOCK']}] ")
+            pick=safe_input(f"\n  \033[38;2;255;121;198mPick (1-{min(5,len(results))}):\033[0m ")
             if pick.isdigit() and 1<=int(pick)<=min(5,len(results)): chosen=results[int(pick)-1]; break
             console.print(f"  [bold #FF4444]Invalid choice.[/bold #FF4444]")
     name=chosen.get("name",city_input); state=chosen.get("admin1",""); country=chosen.get("country_code","")
@@ -795,19 +837,62 @@ def hourly_panel(temp_unit="F"):
     return Panel(t,title=f"[{CLR['CLR_WEATHER']}]> next 6 hours[/{CLR['CLR_WEATHER']}]",border_style=CLR["CLR_WEATHER"],box=box.ROUNDED)
 
 def sky_panel():
-    """Sky doodle that changes based on time of day."""
+    """Sky doodle that changes based on time of day with rich time info."""
     t=Text(); t.append("\n")
     doodle=sky_doodle()
     for line in doodle: t.append(f"  {line}\n",style=CLR["CLR_MOON"])
     t.append("\n")
-    hour=datetime.now().hour
-    if 5<=hour<8:   label="early morning"
-    elif 8<=hour<12: label="morning"
-    elif 12<=hour<17: label="afternoon"
-    elif 17<=hour<20: label="golden hour"
-    elif 20<=hour<22: label="dusk"
-    else:             label="nighttime"
-    t.append(f"  {label}\n",style=f"dim {CLR['CLR_MOON']}")
+    now=datetime.now(); hour=now.hour; minute=now.minute
+
+    if 5<=hour<8:
+        label="early morning"
+        desc="the world is just waking up"
+        end_h=8; mins_left=(end_h-hour)*60-minute
+        t.append(f"  {label}\n",style=f"bold {CLR['CLR_MOON']}")
+        t.append(f"  {desc}\n",style=f"dim {CLR['CLR_DIM']}")
+        t.append(f"  morning in {mins_left}m\n",style=f"dim {CLR['CLR_MOON']}")
+    elif 8<=hour<12:
+        label="morning"
+        desc="crisp and bright"
+        end_h=12; mins_left=(end_h-hour)*60-minute
+        t.append(f"  {label}\n",style=f"bold {CLR['CLR_MOON']}")
+        t.append(f"  {desc}\n",style=f"dim {CLR['CLR_DIM']}")
+        t.append(f"  afternoon in {mins_left}m\n",style=f"dim {CLR['CLR_MOON']}")
+    elif 12<=hour<17:
+        label="afternoon"
+        desc="sun is high"
+        end_h=17; mins_left=(end_h-hour)*60-minute
+        t.append(f"  {label}\n",style=f"bold {CLR['CLR_MOON']}")
+        t.append(f"  {desc}\n",style=f"dim {CLR['CLR_DIM']}")
+        t.append(f"  golden hour in {mins_left}m\n",style=f"dim {CLR['CLR_MOON']}")
+    elif 17<=hour<20:
+        label="golden hour"
+        desc="warm light, long shadows"
+        end_h=20; mins_left=(end_h-hour)*60-minute
+        t.append(f"  {label}\n",style=f"bold {CLR['CLR_CLOCK']}")
+        t.append(f"  {desc}\n",style=f"dim {CLR['CLR_DIM']}")
+        t.append(f"  dusk in {mins_left}m\n",style=f"dim {CLR['CLR_MOON']}")
+        if sun_cache.get("sunset"):
+            t.append(f"  sunset at {sun_cache['sunset']}\n",style=f"dim {CLR['CLR_WEATHER']}")
+    elif 20<=hour<22:
+        label="dusk"
+        desc="sky fading to dark"
+        end_h=22; mins_left=(end_h-hour)*60-minute
+        t.append(f"  {label}\n",style=f"bold {CLR['CLR_MOON']}")
+        t.append(f"  {desc}\n",style=f"dim {CLR['CLR_DIM']}")
+        t.append(f"  night in {mins_left}m\n",style=f"dim {CLR['CLR_MOON']}")
+    else:
+        label="nighttime"
+        desc="stars are out"
+        # Calculate mins to dawn (5am)
+        if hour>=22: mins_left=(24-hour+5)*60-minute
+        else: mins_left=(5-hour)*60-minute
+        t.append(f"  {label}\n",style=f"bold {CLR['CLR_MOON']}")
+        t.append(f"  {desc}\n",style=f"dim {CLR['CLR_DIM']}")
+        t.append(f"  dawn in {mins_left}m\n",style=f"dim {CLR['CLR_MOON']}")
+        if sun_cache.get("sunrise"):
+            t.append(f"  sunrise at {sun_cache['sunrise']}\n",style=f"dim {CLR['CLR_WEATHER']}")
+
     return Panel(t,title=f"[{CLR['CLR_MOON']}]> sky[/{CLR['CLR_MOON']}]",border_style=CLR["CLR_MOON"],box=box.ROUNDED)
 
 # ── Moon ───────────────────────────────────────────────────────────────────────
@@ -840,19 +925,78 @@ def moon_panel():
     return Panel(t,title=f"[{CLR['CLR_MOON']}]> moon[/{CLR['CLR_MOON']}]",border_style=CLR["CLR_MOON"],box=box.ROUNDED)
 
 # ── Spotify ────────────────────────────────────────────────────────────────────
-def init_spotify(cid,cs):
-    if not spotipy or not cid or not cs: spotify_cache["error"]="No Spotify keys set."; return
+def init_spotify(cid, cs):
+    if not spotipy or not cid or not cs:
+        spotify_cache["error"] = "No Spotify keys set."; return
     try:
-        session=requests.Session(); session.verify=False
-        sp=spotipy.Spotify(
-            auth_manager=SpotifyOAuth(client_id=cid,client_secret=cs,redirect_uri="http://127.0.0.1:8888/callback",
-                scope="user-read-playback-state user-read-currently-playing",
-                open_browser=False,cache_path=SPOTIFY_CACHE,requests_session=session),
-            requests_session=session)
+        import webbrowser
+        from http.server import HTTPServer, BaseHTTPRequestHandler
+        from urllib.parse import urlparse, parse_qs
+
+        auth_code = {"value": None, "error": None}
+
+        class CallbackHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                parsed = urlparse(self.path)
+                params = parse_qs(parsed.query)
+                if "code" in params:
+                    auth_code["value"] = params["code"][0]
+                    self.send_response(200)
+                    self.end_headers()
+                    self.wfile.write(b"<html><body><h2>ZZBoard: Spotify connected! You can close this tab.</h2></body></html>")
+                elif "error" in params:
+                    auth_code["error"] = params["error"][0]
+                    self.send_response(200)
+                    self.end_headers()
+                    self.wfile.write(b"<html><body><h2>ZZBoard: Spotify auth failed.</h2></body></html>")
+            def log_message(self, *args): pass  # silence server logs
+
+        session = requests.Session(); session.verify = False
+        auth_manager = SpotifyOAuth(
+            client_id=cid, client_secret=cs,
+            redirect_uri="http://127.0.0.1:8888/callback",
+            scope="user-read-playback-state user-read-currently-playing",
+            open_browser=False, cache_path=SPOTIFY_CACHE,
+        )
+
+        # If we already have a cached token just use it
+        token = auth_manager.get_cached_token()
+        if token and not auth_manager.is_token_expired(token):
+            sp = spotipy.Spotify(auth_manager=auth_manager, requests_session=session)
+            sp.current_playback()
+            spotify_cache.update({"sp": sp, "authed": True, "error": None, "starting": False})
+            return
+
+        # Need fresh auth — open browser and catch callback
+        auth_url = auth_manager.get_authorize_url()
+        spotify_cache["error"] = "Opening browser for Spotify login..."
+
+        # Start local server to catch the callback
+        server = HTTPServer(("127.0.0.1", 8888), CallbackHandler)
+        server.timeout = 120  # 2 min timeout
+
+        webbrowser.open(auth_url)
+
+        # Wait for callback
+        while auth_code["value"] is None and auth_code["error"] is None:
+            server.handle_request()
+
+        server.server_close()
+
+        if auth_code["error"]:
+            spotify_cache["error"] = f"Spotify auth denied: {auth_code['error']}"
+            spotify_cache["starting"] = False
+            return
+
+        # Exchange code for token
+        token_info = auth_manager.get_access_token(auth_code["value"], as_dict=True, check_cache=False)
+        sp = spotipy.Spotify(auth_manager=auth_manager, requests_session=session)
         sp.current_playback()
-        spotify_cache.update({"sp":sp,"authed":True,"error":None,"starting":False})
-    except Exception:
-        spotify_cache["error"]="Spotify connection failed. Check your keys."; spotify_cache["starting"]=False
+        spotify_cache.update({"sp": sp, "authed": True, "error": None, "starting": False})
+
+    except Exception as e:
+        spotify_cache["error"] = "Spotify connection failed. Check your keys."
+        spotify_cache["starting"] = False
 
 def fetch_spotify(cid,cs):
     init_spotify(cid,cs)
@@ -1014,9 +1158,13 @@ def process_settings_key(ktype,kval,cfg):
                 settings_cursor["section"]="main"; settings_cursor["pos"]=0
             elif key=="cat_name":
                 console.clear()
-                console.print(f"\n  [{CLR['CLR_CLOCK']}]Enter your cat's name[/{CLR['CLR_CLOCK']}]")
-                console.print(f"  [{CLR['CLR_DIM']}](current: {cfg.get('cat_name','cat')})[/{CLR['CLR_DIM']}]\n")
-                val=safe_input(f"  [{CLR['CLR_CAT']}]>[/{CLR['CLR_CAT']}] ")
+                console.print(f"\n  [{CLR['CLR_CAT']}]╔══════════════════════════════╗[/{CLR['CLR_CAT']}]")
+                console.print(f"  [{CLR['CLR_CAT']}]║   naming your cat            ║[/{CLR['CLR_CAT']}]")
+                console.print(f"  [{CLR['CLR_CAT']}]╚══════════════════════════════╝[/{CLR['CLR_CAT']}]")
+                console.print(f"\n  [{CLR['CLR_DIM']}]current name: {cfg.get('cat_name','cat')}[/{CLR['CLR_DIM']}]")
+                console.print(f"  [{CLR['CLR_DIM']}]type a new name and press Enter[/{CLR['CLR_DIM']}]\n")
+                val=safe_input("  > ", label="entering cat name...")
+                console.clear()
                 if val:
                     cfg["cat_name"]=val; save_config(cfg)
                     settings_msg.update({"text":f"The cat is now named {val}","color":CLR["CLR_CAT"],"time":time.time()})
@@ -1024,9 +1172,18 @@ def process_settings_key(ktype,kval,cfg):
                     settings_msg.update({"text":"No change","color":CLR["CLR_DIM"],"time":time.time()})
             elif key in ("spotify_client_id","spotify_client_secret"):
                 console.clear()
-                console.print(f"\n  [{CLR['CLR_CLOCK']}]Enter {label}[/{CLR['CLR_CLOCK']}]")
-                console.print(f"  [{CLR['CLR_DIM']}](current: {cfg.get(key,'not set')[:20]})[/{CLR['CLR_DIM']}]\n")
-                val=safe_input(f"  [{CLR['CLR_WEATHER']}]>[/{CLR['CLR_WEATHER']}] ")
+                is_id = key == "spotify_client_id"
+                console.print(f"\n  [{CLR['CLR_SPOTIFY']}]╔══════════════════════════════╗[/{CLR['CLR_SPOTIFY']}]")
+                console.print(f"  [{CLR['CLR_SPOTIFY']}]║   spotify setup              ║[/{CLR['CLR_SPOTIFY']}]")
+                console.print(f"  [{CLR['CLR_SPOTIFY']}]╚══════════════════════════════╝[/{CLR['CLR_SPOTIFY']}]")
+                console.print(f"\n  [{CLR['CLR_DIM']}]step {'1' if is_id else '2'} of 2 — {label}[/{CLR['CLR_DIM']}]")
+                cur = cfg.get(key,"")
+                disp = cur[:6]+"..." if len(cur)>6 else (cur or "not set")
+                console.print(f"  [{CLR['CLR_DIM']}]current: {disp}[/{CLR['CLR_DIM']}]")
+                console.print(f"\n  [{CLR['CLR_DIM']}]paste or type your key and press Enter[/{CLR['CLR_DIM']}]")
+                console.print(f"  [{CLR['CLR_DIM']}]get keys from developer.spotify.com[/{CLR['CLR_DIM']}]\n")
+                val=safe_input("  > ", label=f"entering {label}...")
+                console.clear()
                 if val:
                     cfg[key]=val; save_config(cfg)
                     cid=cfg.get("spotify_client_id",""); cs=cfg.get("spotify_client_secret","")
@@ -1264,39 +1421,73 @@ def show_changelog():
             time.sleep(0.05)
     except Exception: time.sleep(3.0)
 
-def cat_screen(extra_line="",progress=None):
-    t=Text(justify="center"); t.append("\n")
-    colors=[CLR["CLR_CLOCK"],CLR["CLR_WEATHER"],CLR["CLR_MOON"],CLR["CLR_TASKS"],CLR["CLR_CPU"]]
-    for i,line in enumerate(ZZBOARD_LOGO): t.append(line+"\n",style=f"bold {colors[i%len(colors)]}")
-    t.append(f"{'  PUBLIC EDITION  -- made by @wtfplutolol with <3':^50}\n\n",style=f"dim {CLR['CLR_MOON']}")
-    for line in CAT_FRAMES_SPLASH[int(time.time()*2)%len(CAT_FRAMES_SPLASH)]: t.append(line+"\n",style=CLR["CLR_CAT"])
-    t.append("\n"); t.append(f"  {extra_line}\n",style=f"dim {CLR['CLR_WEATHER']}")
+def cat_screen(extra_line="", progress=None, status_log=None):
+    t = Text(justify="center")
+    t.append("\n\n")
+
+    # Logo with gradient colors
+    colors = [CLR["CLR_CLOCK"], CLR["CLR_WEATHER"], CLR["CLR_MOON"], CLR["CLR_TASKS"], CLR["CLR_CPU"]]
+    for i, line in enumerate(ZZBOARD_LOGO):
+        t.append(line + "\n", style=f"bold {colors[i % len(colors)]}")
+    t.append("\n")
+    t.append(f"  {'v'+CURRENT_VERSION+' — public edition':^48}\n", style=f"dim {CLR['CLR_MOON']}")
+    t.append(f"  {'made by @wtfplutolol with <3':^48}\n\n", style=f"dim {CLR['CLR_DIM']}")
+
+    # Animated cat
+    for line in CAT_FRAMES_SPLASH[int(time.time() * 2) % len(CAT_FRAMES_SPLASH)]:
+        t.append(line + "\n", style=f"bold {CLR['CLR_CAT']}")
+
+    t.append("\n")
+
+    # Progress bar
     if progress is not None:
-        fill=int(progress)
-        t.append("\n  [",style=f"dim {CLR['CLR_DIM']}"); t.append("#"*fill,style=CLR["CLR_CLOCK"])
-        t.append("-"*(36-fill),style=f"dim {CLR['CLR_DIM']}"); t.append("]\n",style=f"dim {CLR['CLR_DIM']}")
-    return Align.center(t,vertical="middle")
+        fill = int(progress)
+        pct  = int(fill / 36 * 100)
+        t.append("  [", style=f"dim {CLR['CLR_DIM']}")
+        t.append("█" * fill, style=f"bold {CLR['CLR_CLOCK']}")
+        t.append("░" * (36 - fill), style=f"dim {CLR['CLR_DIM']}")
+        t.append(f"]  {pct}%\n", style=f"dim {CLR['CLR_DIM']}")
+        t.append("\n")
+
+    # Status line
+    if extra_line:
+        t.append(f"  {extra_line}\n", style=f"dim {CLR['CLR_WEATHER']}")
+
+    # Last few log lines
+    if status_log:
+        t.append("\n")
+        for entry in status_log[-3:]:
+            t.append(f"  {entry}\n", style=f"dim {CLR['CLR_DIM']}")
+
+    return Align.center(t, vertical="middle")
 
 def show_update_screen():
-    done=threading.Event()
-    threading.Thread(target=lambda:[check_for_update(),done.set()],daemon=True).start()
-    while not done.is_set():
-        log=update_status["log"][-1] if update_status["log"] else "Connecting..."
-        with Live(cat_screen(f"> {log}"),console=console,screen=True,refresh_per_second=3): time.sleep(0.35)
+    done = threading.Event()
+    threading.Thread(target=lambda: [check_for_update(), done.set()], daemon=True).start()
+    with Live(console=console, screen=True, refresh_per_second=4) as live:
+        while not done.is_set():
+            log = update_status["log"][-1] if update_status["log"] else "connecting..."
+            live.update(cat_screen(f"> {log}", status_log=update_status["log"]))
+            time.sleep(0.25)
+        # Show final status for a moment
+        log = update_status["log"][-1] if update_status["log"] else ""
+        live.update(cat_screen(f"> {log}", status_log=update_status["log"]))
+        time.sleep(1.5)
+
     if update_status["updated"]:
-        with Live(cat_screen("> Update ready! Showing changelog..."),console=console,screen=True,refresh_per_second=3): time.sleep(1.5)
         show_changelog()
         if IS_EXE: apply_exe_update_and_restart()
         else: do_restart()
-    else:
-        msg="> Already up to date." if not update_status.get("error") else "> Could not reach GitHub. Continuing offline."
-        with Live(cat_screen(msg),console=console,screen=True,refresh_per_second=3): time.sleep(2.0)
 
 def show_splash():
-    for tick in range(36):
-        step=LOADING_STEPS[min(tick//max(1,36//len(LOADING_STEPS)),len(LOADING_STEPS)-1)]
-        with Live(cat_screen(f"> {step}",tick),console=console,screen=True,refresh_per_second=3): time.sleep(0.12)
-    time.sleep(0.5)
+    with Live(console=console, screen=True, refresh_per_second=8) as live:
+        for tick in range(37):
+            step = LOADING_STEPS[min(tick // max(1, 36 // len(LOADING_STEPS)), len(LOADING_STEPS) - 1)]
+            live.update(cat_screen(f"> {step}", progress=min(tick, 36)))
+            time.sleep(0.10)
+        # Hold on "ready" for a beat
+        live.update(cat_screen("> all ready", progress=36))
+        time.sleep(0.6)
 
 # ── File watcher ───────────────────────────────────────────────────────────────
 class ReloadHandler(FileSystemEventHandler):
@@ -1412,6 +1603,7 @@ def speed_panel():
         if speed_cache["last"]: t.append(f"   tested {int((time.time()-speed_cache['last'])/60)}m ago\n",style=f"italic dim {CLR['CLR_DIM']}")
         t.append(f"\n  {cat_speed_msg}\n",style=f"italic dim {CLR['CLR_DIM']}")
         t.append(f"\n  Press T to run again\n",style=f"dim {CLR['CLR_SPEED']}")
+        t.append(f"  Press C to copy results\n",style=f"dim {CLR['CLR_DIM']}")
     return Panel(t,title=f"[{CLR['CLR_SPEED']}]> speed test  [ T to run ][/{CLR['CLR_SPEED']}]",border_style=CLR["CLR_SPEED"],box=box.ROUNDED)
 
 # ── Tab bar ────────────────────────────────────────────────────────────────────
@@ -1431,15 +1623,15 @@ def tab_bar():
 def build_tab1(cfg):
     has_spotify=bool(cfg.get("spotify_client_id")); layout=Layout()
     if has_spotify:
-        layout.split_column(Layout(name="clock",size=8),Layout(name="mid",ratio=2),Layout(name="bottom",ratio=1))
+        layout.split_column(Layout(name="clock",size=8),Layout(name="mid",ratio=2),Layout(name="bottom",ratio=3))
         layout["mid"].split_row(Layout(name="cpu",ratio=1),Layout(name="mem",ratio=1))
         layout["bottom"].split_row(Layout(name="spotify",ratio=2),Layout(name="cat",ratio=1))
-        layout["spotify"].update(spotify_panel()); layout["cat"].update(cat_panel(cfg))
+        layout["spotify"].update(spotify_panel())
+        layout["cat"].update(cat_panel(cfg, compact=True))
     else:
-        layout.split_column(Layout(name="clock",size=8),Layout(name="stats",ratio=2),Layout(name="cat_row",ratio=2))
+        layout.split_column(Layout(name="clock",size=8),Layout(name="stats",ratio=2),Layout(name="cat_row",ratio=3))
         layout["stats"].split_row(Layout(name="cpu",ratio=1),Layout(name="mem",ratio=1))
-        layout["cat_row"].split_row(Layout(name="cat",ratio=1),Layout(name="ip",ratio=1))
-        layout["cat"].update(cat_panel(cfg)); layout["ip"].update(ip_panel())
+        layout["cat_row"].update(cat_panel(cfg))
     layout["clock"].update(clock_panel(cfg))
     layout["cpu"].update(cpu_panel()); layout["mem"].update(mem_panel())
     return layout
@@ -1461,7 +1653,12 @@ def build_tab3(cfg):
     layout["disk"].update(disk_panel()); layout["tasks"].update(tasks_panel(cfg.get("tasks",[]))); layout["procs"].update(procs_panel())
     return layout
 
-def build_tab4(cfg): return speed_panel()
+def build_tab4(cfg):
+    layout=Layout()
+    layout.split_row(Layout(name="speed",ratio=2),Layout(name="wifi",ratio=1))
+    layout["speed"].update(speed_panel())
+    layout["wifi"].update(ip_panel())
+    return layout
 
 def build_tab5(cfg):
     mode=game_state["mode"]
@@ -1574,21 +1771,22 @@ def first_launch_setup():
     t.append("  Welcome! Let's get you set up.\n\n",style=f"bold {CLR['CLR_CLOCK']}")
     console.print(Align.center(t))
     while True:
-        city_input=safe_input(f"  [{CLR['CLR_WEATHER']}]What city are you in?[/{CLR['CLR_WEATHER']}] ")
+        city_input=safe_input(f"  \033[38;2;255;121;198mWhat city are you in?\033[0m ")
         if not city_input: city_input="New York"
         console.print(f"  [{CLR['CLR_DIM']}]Looking that up...[/{CLR['CLR_DIM']}]")
         results=search_cities(city_input)
         if not results: console.print(f"  [bold #FF4444]Could not find '{city_input}'. Please try again.[/bold #FF4444]"); continue
+        results=sorted(results,key=lambda r:r.get("population",0) or 0,reverse=True)
         if len(results)==1:
             chosen=results[0]
         else:
-            console.print(f"\n  [{CLR['CLR_CLOCK']}]Found a few options:[/{CLR['CLR_CLOCK']}]\n")
+            console.print(f"\n  [bold #FF79C6]Found a few options:[/bold #FF79C6]\n")
             for i,r in enumerate(results):
                 name=r.get("name",""); state=r.get("admin1",""); country=r.get("country","")
                 pop=r.get("population",0); pop_str=f"  pop {pop:,}" if pop else ""
-                console.print(f"  [{CLR['CLR_WEATHER']}]{i+1}.[/{CLR['CLR_WEATHER']}] {name}, {state}, {country}{pop_str}")
+                console.print(f"  [#FF79C6]{i+1}.[/#FF79C6] {name}, {state}, {country}{pop_str}")
             while True:
-                pick=safe_input(f"\n  [{CLR['CLR_CLOCK']}]Pick a number (1-{len(results)}):[/{CLR['CLR_CLOCK']}] ")
+                pick=safe_input(f"\n  \033[38;2;255;121;198mPick a number (1-{len(results)}):\033[0m ")
                 if pick.isdigit() and 1<=int(pick)<=len(results): chosen=results[int(pick)-1]; break
                 console.print(f"  [bold #FF4444]Invalid choice. Try again.[/bold #FF4444]")
         name=chosen.get("name",city_input); state=chosen.get("admin1",""); country=chosen.get("country_code","")
@@ -1628,7 +1826,9 @@ def main():
     start_watcher()
 
     if not args.no_splash:
+        console.clear()
         show_update_screen()
+        console.clear()
         show_splash()
     else:
         update_status["checked"]=True; update_status["updated"]=False
@@ -1642,6 +1842,9 @@ def main():
                     show_changelog()
                     if IS_EXE: apply_exe_update_and_restart()
                     else: do_restart()
+                if rendering_paused["v"]:
+                    time.sleep(0.05)
+                    continue
                 if time.time()-last_key_time["t"]>SCREENSAVER_IDLE_SECS:
                     screensaver_on["v"]=True
                 update_fps()
