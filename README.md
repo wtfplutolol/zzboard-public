@@ -1,6 +1,6 @@
 # ZZBoard Public
 
-> A beautiful, feature-rich terminal dashboard for your desktop. Open source and free to use.
+> A beautiful, feature-rich terminal dashboard for your desktop. Open source and free to use. Made to be lightweight
 
 ```
   ________ ______  ____  ____  ____  ____  ____
