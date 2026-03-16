@@ -104,3 +104,10 @@ Requirements
 Windows 10/11
 Python 3.10+ (not needed if using the exe)
 Internet connection for weather, Spotify and auto-updates
+
+
+Credits
+Built by @wtfplutolol with <3
+
+License
+MIT — free to use, modify and distribute.
