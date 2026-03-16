@@ -1,6 +1,6 @@
 # ZZBoard Public
 
-> A cozy, fully customizable terminal dashboard. Open source, free forever, and built to make your desktop feel alive.
+> A cozy, fully customizable, cat-powered terminal dashboard. Open source, free forever, and built to make your desktop feel alive.
 
 ```
   ________ ______  ____  ____  ____  ____  ____
@@ -24,8 +24,9 @@
 ## Why ZZBoard?
 
 - **Open source** — every line of code is right here. Read it, fork it, modify it, share it.
-- **Fully customizable** — 8 themes, adjustable settings, your city, your tasks, your Spotify keys. It's yours.
-- **Auto-updating** — ZZBoard checks GitHub Releases every time you launch and updates itself silently. You never have to manually download a new version.
+- **Fully customizable** — 8 themes, adjustable settings, your city, your tasks, your cat's name, your Spotify keys.
+- **Auto-updating** — ZZBoard checks GitHub Releases every launch and updates itself silently. You never need to download a new version manually.
+- **Cat-powered** — a sleeping cat lives on your dashboard and reacts to music, weather, CPU and the time of day.
 - **No account required** — just download and run. Spotify is optional and uses your own API keys stored locally.
 - **No telemetry** — nothing is collected or sent anywhere. Your config stays on your machine.
 
@@ -36,6 +37,7 @@
 - **6 tabbed screens** — press `1` through `6` to switch instantly
 - **Live system stats** — CPU, RAM, disk, network with sparkline graphs
 - **Weather with ASCII doodles** — current conditions plus a 6 hour forecast
+- **Sky doodles** — time-of-day ASCII art that changes from dawn to night
 - **Moon phase** — ASCII art, illumination % and days to full moon
 - **Sunrise and sunset** — pulled automatically from your city
 - **Spotify now playing** — bring your own API keys, stored locally
@@ -45,11 +47,15 @@
 - **Snake and Tetris** — fully playable games with high score tracking
 - **8 color themes** — pink, green, blue, amber, red, nord, dracula, synthwave
 - **Low light mode** — dims all colors for late night use
+- **Cat panel** — sleeping cat that reacts to Spotify, weather, CPU and time of day
+- **Cat expressions** — eyes and mouth change based on what's happening
+- **Cat name** — name your cat in settings
+- **IP panel** — local and public IP hidden by default, press H to reveal
+- **ISP name** — shown alongside IP when revealed
+- **Clipboard** — press C to copy stats from any tab
+- **Change city** — switch city instantly from settings without restarting
+- **Screensaver** — animated cat after 5 minutes of inactivity
 - **Time-aware greeting** — good morning, afternoon, evening or night
-- **Days until weekend** — always visible on the system tab
-- **Screensaver** — animated cat appears after 5 minutes of inactivity
-- **WASD navigation in settings** — no mouse needed
-- **Auto-updater** — checks GitHub Releases on every launch and updates silently
 
 ---
 
@@ -57,12 +63,12 @@
 
 | Key | Tab | Contents |
 |-----|-----|----------|
-| `1` | System | Clock, CPU, Memory, Spotify |
-| `2` | Sky | Weather, Moon phase, Hourly forecast |
+| `1` | System | Clock, CPU, Memory, Cat, IP, Spotify |
+| `2` | Sky | Weather, Moon, Sky doodle, Hourly forecast |
 | `3` | Storage | Disk, Tasks, Processes |
 | `4` | Speed | Internet speed test |
 | `5` | Games | Snake + Tetris |
-| `6` | Settings | Theme, temp unit, time format, city, Spotify keys |
+| `6` | Settings | Theme, temp, time format, cat name, city, Spotify keys |
 
 ---
 
@@ -72,10 +78,10 @@
 |-----|--------|
 | `1` to `6` | Switch tabs |
 | `S` | Start Snake |
-| `T` | Start Tetris (on games tab) or run speed test (on speed tab) |
+| `T` | Start Tetris (games tab) or run speed test (speed tab) |
 | `WASD` / Arrows | Move in Snake, control Tetris, navigate Settings |
-| `W` / Up | Rotate in Tetris |
-| `S` / Down | Hard drop in Tetris |
+| `H` | Toggle IP visibility |
+| `C` | Copy current tab stats to clipboard |
 | `Q` | Quit current game |
 | `Enter` | Confirm setting |
 | `Ctrl+C` | Exit ZZBoard |
@@ -92,9 +98,7 @@ Go to [Releases](../../releases/latest) and download `zzboard_public.exe`. Doubl
 
 ## Auto-Updates
 
-ZZBoard checks this GitHub repo on every launch. If a new release is found it downloads the new exe, shows the changelog, and restarts automatically. You never need to manually download an update.
-
-Your config file and high scores are never touched by updates.
+ZZBoard checks this GitHub repo on every launch. If a newer version is found it downloads the new exe, shows the changelog, and restarts automatically. Your config and high scores are never affected.
 
 ---
 
@@ -111,7 +115,7 @@ Your config file and high scores are never touched by updates.
 | `dracula` | Dark purple with vibrant accents |
 | `synthwave` | Neon pink, purple and cyan |
 
-Switch themes live in the Settings tab. Changes apply instantly.
+Switch themes live in Settings. Changes apply instantly with no restart.
 
 ---
 
@@ -121,7 +125,7 @@ Switch themes live in the Settings tab. Changes apply instantly.
 2. Create a free app and set the Redirect URI to `http://127.0.0.1:8888/callback`
 3. Copy your **Client ID** and **Client Secret**
 4. In ZZBoard press `6` → Advanced → enter your keys
-5. Restart — Spotify now playing appears at the bottom of Tab 1
+5. Spotify now playing appears at the bottom of Tab 1
 
 Your keys are stored locally in `zzboard_config.json` and never sent anywhere.
 
@@ -141,6 +145,7 @@ ZZBoard saves your settings to `zzboard_config.json` next to the exe. This file 
   "time_format": "24",
   "speed_interval": 30,
   "low_light": false,
+  "cat_name": "cat",
   "tasks": ["water the plants", "touch some grass", "take a nap"],
   "spotify_client_id": "",
   "spotify_client_secret": ""
