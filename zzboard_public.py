@@ -712,9 +712,14 @@ def show_update_screen():
     while not done.is_set():
         log=update_status["log"][-1] if update_status["log"] else "connecting..."
         with Live(cat_screen(f"> {log}"),console=console,screen=True,refresh_per_second=10): time.sleep(0.15)
-    msg="> updated!" if update_status["updated"] else "> up to date!" if not update_status["error"] else "> continuing offline..."
-    with Live(cat_screen(msg),console=console,screen=True,refresh_per_second=10): time.sleep(1.5)
-
+    if update_status["updated"]:
+        with Live(cat_screen("> update applied! loading changelog..."),console=console,screen=True,refresh_per_second=10): time.sleep(2.0)
+        console.clear()
+        show_changelog()
+        do_restart()
+    else:
+        msg="> up to date!" if not update_status["error"] else "> continuing offline..."
+        with Live(cat_screen(msg),console=console,screen=True,refresh_per_second=10): time.sleep(1.5)
 def show_splash():
     for tick in range(36):
         step=LOADING_STEPS[min(tick//max(1,36//len(LOADING_STEPS)),len(LOADING_STEPS)-1)]
