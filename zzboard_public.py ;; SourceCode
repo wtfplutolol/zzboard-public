@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 #!/usr/bin/env python3
-# ZZBoard Public v1.6
+# ZZBoard Public v1.7
 # https://github.com/wtfplutolol/zzboard-public
 # Made by @wtfplutolol with <3
 # Requirements: pip install psutil rich requests speedtest-cli watchdog spotipy
-# Keys: 1-6 tabs | S=snake | WASD/arrows=move | T=speed test | Q=quit game
+# Keys: 1-6 tabs | S=snake | T=tetris | WASD/arrows | T=speed test on tab 4 | Q=quit game
 
 import argparse
 import hashlib
@@ -70,42 +70,72 @@ GITHUB_USER       = "wtfplutolol"
 GITHUB_REPO       = "zzboard-public"
 GITHUB_RAW_URL    = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/main/zzboard_public.py"
 GITHUB_LATEST_URL = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/releases/latest"
-CURRENT_VERSION   = "v1.6"
+CURRENT_VERSION   = "v1.7"
 
-# ── Cozy messages ──────────────────────────────────────────────────────────────
-COZY_GREETINGS  = ["good morning, sleepyhead ~","welcome back, cozy one ~","all systems purring ~","you look great today ~","take it easy today ~","coffee first, code later ~","everything is fine ~","nice and quiet in here ~","staying cozy out there? ~","the dashboard misses you ~"]
-COZY_UPTIME     = ["been running for","awake for","purring along for","cozy for","online for"]
-COZY_SPEED_DONE = ["not bad at all ~","cozy connection ~","looking good ~","your internet is awake ~","smooth sailing ~"]
-SCREENSAVER_MSGS = ["taking a little nap ~","back in a moment ~","still here, just resting ~","zzzboard ~","shh, the dashboard is sleeping ~"]
+# ── Cozy messages (reduced ~) ──────────────────────────────────────────────────
+def time_greeting():
+    h = datetime.now().hour
+    if 5  <= h < 12: return "good morning"
+    if 12 <= h < 17: return "good afternoon"
+    if 17 <= h < 21: return "good evening"
+    return "good night"
+
+COZY_UPTIME     = ["been running for","awake for","online for","up for"]
+COZY_SPEED_DONE = ["not bad","solid connection","looking good","all good"]
+SCREENSAVER_MSGS = ["taking a little nap","back in a moment","still here, just resting","zzzboard"]
 
 # ── Changelog ─────────────────────────────────────────────────────────────────
 CHANGELOG = [
-    ("v1.6", [
-        "Fixed speed test (broken in v1.5)",
-        "Spotify queue — see what's up next",
-        "Screensaver mode — animated cat when idle 5 mins",
-        "Days until weekend shown on system tab",
-        "Auto + manual speed test both work",
-        "Tab switching fixed for exe",
+    ("v1.7", [
+        "Tetris added to games tab",
+        "Time-aware greeting — good morning/afternoon/evening/night",
+        "Top right HUD — FPS, ping, WiFi signal",
+        "Hourly weather forecast on sky tab",
+        "Low light mode in settings",
+        "Nord, Dracula and Synthwave themes added",
+        "Friendly error messages throughout",
+        "Fixed enter key after Spotify input",
+        "Fixed menu switching after entering keys",
+        "Reduced excessive tildes",
     ]),
-    ("v1.5 - Cozy Edition", ["Cozy flavor text","Weather ASCII doodles","Manual speed test","WASD in settings","Removed Flappy Bird"]),
-    ("v1.4", ["Multi-city selection","Sunrise/sunset","Spotify on Tab 1","High scores"]),
+    ("v1.6", ["Fixed speed test","Spotify queue","Screensaver mode","Days until weekend"]),
+    ("v1.5", ["Cozy edition","Weather doodles","Manual speed test","WASD settings"]),
     ("v1.0", ["Initial public release"]),
 ]
 
 # ── Themes ─────────────────────────────────────────────────────────────────────
 THEMES = {
-    "green": {"CLR_CLOCK":"#00FFB2","CLR_CPU":"#FF6B6B","CLR_MEM":"#FFD93D","CLR_WEATHER":"#6BCBFF","CLR_MOON":"#E0E0FF","CLR_DISK":"#A8FF78","CLR_TASKS":"#BD93F9","CLR_PROCS":"#FF9F43","CLR_SPEED":"#00CEC9","CLR_SNAKE":"#00FF00","CLR_SPOTIFY":"#1DB954","CLR_DIM":"#555566"},
-    "blue":  {"CLR_CLOCK":"#00BFFF","CLR_CPU":"#87CEEB","CLR_MEM":"#4169E1","CLR_WEATHER":"#00CED1","CLR_MOON":"#E0E8FF","CLR_DISK":"#1E90FF","CLR_TASKS":"#6495ED","CLR_PROCS":"#00BFFF","CLR_SPEED":"#40E0D0","CLR_SNAKE":"#00FF7F","CLR_SPOTIFY":"#1DB954","CLR_DIM":"#334455"},
-    "pink":  {"CLR_CLOCK":"#FF79C6","CLR_CPU":"#FF6B9D","CLR_MEM":"#FFB3DE","CLR_WEATHER":"#FF85C8","CLR_MOON":"#FFE0F0","CLR_DISK":"#FF69B4","CLR_TASKS":"#DA70D6","CLR_PROCS":"#FF1493","CLR_SPEED":"#FF82AB","CLR_SNAKE":"#FF69B4","CLR_SPOTIFY":"#1DB954","CLR_DIM":"#553344"},
-    "amber": {"CLR_CLOCK":"#FFB000","CLR_CPU":"#FF8C00","CLR_MEM":"#FFD700","CLR_WEATHER":"#FFA500","CLR_MOON":"#FFEEBB","CLR_DISK":"#FFCC00","CLR_TASKS":"#FF9F43","CLR_PROCS":"#FF6347","CLR_SPEED":"#FFC125","CLR_SNAKE":"#ADFF2F","CLR_SPOTIFY":"#1DB954","CLR_DIM":"#554433"},
-    "red":   {"CLR_CLOCK":"#FF4444","CLR_CPU":"#FF6B6B","CLR_MEM":"#FF8080","CLR_WEATHER":"#FF6666","CLR_MOON":"#FFE0E0","CLR_DISK":"#FF5555","CLR_TASKS":"#CC3333","CLR_PROCS":"#FF0000","CLR_SPEED":"#FF3333","CLR_SNAKE":"#FF6666","CLR_SPOTIFY":"#1DB954","CLR_DIM":"#553333"},
+    "pink":      {"CLR_CLOCK":"#FF79C6","CLR_CPU":"#FF6B9D","CLR_MEM":"#FFB3DE","CLR_WEATHER":"#FF85C8","CLR_MOON":"#FFE0F0","CLR_DISK":"#FF69B4","CLR_TASKS":"#DA70D6","CLR_PROCS":"#FF1493","CLR_SPEED":"#FF82AB","CLR_SNAKE":"#FF69B4","CLR_TETRIS":"#FF79C6","CLR_SPOTIFY":"#1DB954","CLR_HUD":"#FF79C6","CLR_DIM":"#553344"},
+    "green":     {"CLR_CLOCK":"#00FFB2","CLR_CPU":"#FF6B6B","CLR_MEM":"#FFD93D","CLR_WEATHER":"#6BCBFF","CLR_MOON":"#E0E0FF","CLR_DISK":"#A8FF78","CLR_TASKS":"#BD93F9","CLR_PROCS":"#FF9F43","CLR_SPEED":"#00CEC9","CLR_SNAKE":"#00FF00","CLR_TETRIS":"#00FFB2","CLR_SPOTIFY":"#1DB954","CLR_HUD":"#00FFB2","CLR_DIM":"#555566"},
+    "blue":      {"CLR_CLOCK":"#00BFFF","CLR_CPU":"#87CEEB","CLR_MEM":"#4169E1","CLR_WEATHER":"#00CED1","CLR_MOON":"#E0E8FF","CLR_DISK":"#1E90FF","CLR_TASKS":"#6495ED","CLR_PROCS":"#00BFFF","CLR_SPEED":"#40E0D0","CLR_SNAKE":"#00FF7F","CLR_TETRIS":"#00BFFF","CLR_SPOTIFY":"#1DB954","CLR_HUD":"#00BFFF","CLR_DIM":"#334455"},
+    "amber":     {"CLR_CLOCK":"#FFB000","CLR_CPU":"#FF8C00","CLR_MEM":"#FFD700","CLR_WEATHER":"#FFA500","CLR_MOON":"#FFEEBB","CLR_DISK":"#FFCC00","CLR_TASKS":"#FF9F43","CLR_PROCS":"#FF6347","CLR_SPEED":"#FFC125","CLR_SNAKE":"#ADFF2F","CLR_TETRIS":"#FFB000","CLR_SPOTIFY":"#1DB954","CLR_HUD":"#FFB000","CLR_DIM":"#554433"},
+    "red":       {"CLR_CLOCK":"#FF4444","CLR_CPU":"#FF6B6B","CLR_MEM":"#FF8080","CLR_WEATHER":"#FF6666","CLR_MOON":"#FFE0E0","CLR_DISK":"#FF5555","CLR_TASKS":"#CC3333","CLR_PROCS":"#FF0000","CLR_SPEED":"#FF3333","CLR_SNAKE":"#FF6666","CLR_TETRIS":"#FF4444","CLR_SPOTIFY":"#1DB954","CLR_HUD":"#FF4444","CLR_DIM":"#553333"},
+    "nord":      {"CLR_CLOCK":"#88C0D0","CLR_CPU":"#BF616A","CLR_MEM":"#EBCB8B","CLR_WEATHER":"#81A1C1","CLR_MOON":"#D8DEE9","CLR_DISK":"#A3BE8C","CLR_TASKS":"#B48EAD","CLR_PROCS":"#D08770","CLR_SPEED":"#8FBCBB","CLR_SNAKE":"#A3BE8C","CLR_TETRIS":"#88C0D0","CLR_SPOTIFY":"#1DB954","CLR_HUD":"#88C0D0","CLR_DIM":"#434C5E"},
+    "dracula":   {"CLR_CLOCK":"#BD93F9","CLR_CPU":"#FF5555","CLR_MEM":"#F1FA8C","CLR_WEATHER":"#8BE9FD","CLR_MOON":"#F8F8F2","CLR_DISK":"#50FA7B","CLR_TASKS":"#FF79C6","CLR_PROCS":"#FFB86C","CLR_SPEED":"#8BE9FD","CLR_SNAKE":"#50FA7B","CLR_TETRIS":"#BD93F9","CLR_SPOTIFY":"#1DB954","CLR_HUD":"#BD93F9","CLR_DIM":"#44475A"},
+    "synthwave": {"CLR_CLOCK":"#FF00FF","CLR_CPU":"#FF2D78","CLR_MEM":"#FFD700","CLR_WEATHER":"#00FFFF","CLR_MOON":"#FF79C6","CLR_DISK":"#7B2FBE","CLR_TASKS":"#FF6EC7","CLR_PROCS":"#FF9F43","CLR_SPEED":"#00FFFF","CLR_SNAKE":"#00FF41","CLR_TETRIS":"#FF00FF","CLR_SPOTIFY":"#1DB954","CLR_HUD":"#FF00FF","CLR_DIM":"#2D1B69"},
 }
-CLR = {}
+
+CLR      = {}
+CLR_BASE = {}  # stores original colors for low light toggle
 
 def apply_theme(name):
-    global CLR
-    CLR.update(THEMES.get(name, THEMES["pink"]))
+    global CLR, CLR_BASE
+    base = THEMES.get(name, THEMES["pink"])
+    CLR_BASE = dict(base)
+    if _cfg_ref.get("low_light"):
+        CLR.update({k: dim_color(v) for k, v in base.items()})
+    else:
+        CLR.update(base)
+
+def dim_color(hex_color):
+    """Reduce brightness by 40% for low light mode."""
+    try:
+        h = hex_color.lstrip("#")
+        r,g,b = int(h[0:2],16), int(h[2:4],16), int(h[4:6],16)
+        r,g,b = int(r*0.6), int(g*0.6), int(b*0.6)
+        return f"#{r:02x}{g:02x}{b:02x}"
+    except Exception:
+        return hex_color
 
 # ── State ──────────────────────────────────────────────────────────────────────
 CPU_HIST        = deque([0.0] * 50, maxlen=50)
@@ -120,24 +150,24 @@ key_queue       = []
 key_lock        = threading.Lock()
 last_key_time   = {"t": time.time()}
 screensaver_on  = {"v": False}
-cozy_greeting   = random.choice(COZY_GREETINGS)
+ss_msg          = random.choice(SCREENSAVER_MSGS)
 cozy_uptime     = random.choice(COZY_UPTIME)
 cozy_speed_done = random.choice(COZY_SPEED_DONE)
-ss_msg          = random.choice(SCREENSAVER_MSGS)
 
-weather_cache = {"data": None, "error": None, "last": 0}
-speed_cache   = {"download": None, "upload": None, "ping": None, "testing": False, "last": 0, "error": None, "running": False}
-update_status = {"checked": False, "updated": False, "error": None, "log": [], "new_version": None}
-weather_meta  = {"url": None, "city": "Unknown", "country": "", "not_found": False}
-spotify_cache = {"data": None, "queue": None, "error": None, "sp": None, "authed": False}
-sun_cache     = {"sunrise": None, "sunset": None}
-high_scores   = {"snake": 0}
-_cfg_ref      = {}
+weather_cache  = {"data": None, "error": None, "last": 0}
+speed_cache    = {"download": None, "upload": None, "ping": None, "testing": False, "last": 0, "error": None, "running": False}
+update_status  = {"checked": False, "updated": False, "error": None, "log": [], "new_version": None}
+weather_meta   = {"url": None, "city": "Unknown", "country": "", "not_found": False}
+spotify_cache  = {"data": None, "queue": None, "error": None, "sp": None, "authed": False, "starting": False}
+sun_cache      = {"sunrise": None, "sunset": None}
+high_scores    = {"snake": 0, "tetris": 0}
+hud_cache      = {"fps": 0, "ping": None, "wifi": None, "wifi_signal": None, "last_ping": 0, "last_wifi": 0, "frames": 0, "last_fps": time.time()}
+_cfg_ref       = {}
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 DEFAULT_CONFIG = {
     "city": "", "theme": "pink", "temp_unit": "F", "time_format": "24",
-    "speed_interval": 30,
+    "speed_interval": 30, "low_light": False,
     "tasks": ["water the plants", "touch some grass", "take a nap"],
     "spotify_client_id": "", "spotify_client_secret": "",
 }
@@ -163,7 +193,8 @@ def load_high_scores():
     try:
         with open(os.path.join(THIS_DIR, "zzboard_scores.json"), "r") as f:
             s = json.load(f)
-        high_scores["snake"] = s.get("snake", 0)
+        high_scores["snake"]  = s.get("snake", 0)
+        high_scores["tetris"] = s.get("tetris", 0)
     except Exception:
         pass
 
@@ -222,13 +253,100 @@ def get_keys():
         key_queue.clear()
     return keys
 
+# ── HUD ────────────────────────────────────────────────────────────────────────
+def fetch_hud():
+    """Background thread to update HUD stats."""
+    while True:
+        now = time.time()
+        # Ping every 3 seconds
+        if now - hud_cache["last_ping"] > 3:
+            try:
+                import subprocess as sp
+                r = sp.run(["ping", "-n", "1", "-w", "1000", "8.8.8.8"],
+                           capture_output=True, text=True, timeout=3)
+                for line in r.stdout.splitlines():
+                    if "Average" in line or "Minimum" in line:
+                        parts = line.split("=")
+                        if parts:
+                            ms = parts[-1].strip().replace("ms","").strip()
+                            try: hud_cache["ping"] = int(ms)
+                            except: pass
+                        break
+                    elif "time=" in line.lower() or "time<" in line.lower():
+                        import re
+                        m = re.search(r"time[=<](\d+)", line)
+                        if m: hud_cache["ping"] = int(m.group(1))
+                        break
+            except Exception:
+                hud_cache["ping"] = None
+            hud_cache["last_ping"] = now
+
+        # WiFi every 10 seconds
+        if now - hud_cache["last_wifi"] > 10:
+            try:
+                import subprocess as sp
+                r = sp.run(["netsh", "wlan", "show", "interfaces"],
+                           capture_output=True, text=True, timeout=5)
+                wifi_name = None; signal = None
+                for line in r.stdout.splitlines():
+                    if "SSID" in line and "BSSID" not in line:
+                        wifi_name = line.split(":")[-1].strip()
+                    if "Signal" in line:
+                        sig = line.split(":")[-1].strip().replace("%","")
+                        try: signal = int(sig)
+                        except: pass
+                hud_cache["wifi"]        = wifi_name
+                hud_cache["wifi_signal"] = signal
+            except Exception:
+                hud_cache["wifi"]        = None
+                hud_cache["wifi_signal"] = None
+            hud_cache["last_wifi"] = now
+
+        time.sleep(0.5)
+
+def update_fps():
+    hud_cache["frames"] += 1
+    now = time.time()
+    elapsed = now - hud_cache["last_fps"]
+    if elapsed >= 1.0:
+        hud_cache["fps"] = int(hud_cache["frames"] / elapsed)
+        hud_cache["frames"] = 0
+        hud_cache["last_fps"] = now
+
+def hud_bar():
+    t = Text()
+    # FPS
+    fps = hud_cache["fps"]
+    fps_col = "#FF4444" if fps < 10 else "#FFD93D" if fps < 20 else CLR["CLR_HUD"]
+    t.append(f" FPS {fps} ", style=f"bold {fps_col}")
+    t.append("|", style=f"dim {CLR['CLR_DIM']}")
+    # Ping
+    ping = hud_cache["ping"]
+    if ping is None:
+        t.append(" PING -- ", style=f"dim {CLR['CLR_DIM']}")
+    else:
+        ping_col = "#FF4444" if ping > 150 else "#FFD93D" if ping > 60 else CLR["CLR_HUD"]
+        t.append(f" PING {ping}ms ", style=f"bold {ping_col}")
+    t.append("|", style=f"dim {CLR['CLR_DIM']}")
+    # WiFi
+    sig = hud_cache["wifi_signal"]
+    if sig is None:
+        t.append(" WiFi -- ", style=f"dim {CLR['CLR_DIM']}")
+    else:
+        bars     = int(sig / 25)
+        bar_str  = "█" * bars + "░" * (4 - bars)
+        sig_col  = "#FF4444" if sig < 25 else "#FFD93D" if sig < 50 else CLR["CLR_HUD"]
+        wifi_name = (hud_cache["wifi"] or "")[:12]
+        t.append(f" {bar_str} {sig}% {wifi_name} ", style=f"bold {sig_col}")
+    return t
+
 # ── City reset ─────────────────────────────────────────────────────────────────
 def city_reset_countdown():
     for i in range(5, 0, -1):
         t = Text(justify="center")
         t.append("\n\n\n")
-        t.append("  resetting your city ~\n\n",          style=f"bold {CLR['CLR_CLOCK']}")
-        t.append(f"  restarting in {i}...\n\n",          style=f"bold {CLR['CLR_WEATHER']}")
+        t.append("  resetting your city\n\n",           style=f"bold {CLR['CLR_CLOCK']}")
+        t.append(f"  restarting in {i}...\n\n",         style=f"bold {CLR['CLR_WEATHER']}")
         t.append("  you will be asked for a new city\n", style=f"dim {CLR['CLR_DIM']}")
         with Live(Align.center(t, vertical="middle"), console=console, screen=True, refresh_per_second=2):
             time.sleep(1.0)
@@ -250,27 +368,25 @@ CAT_FRAMES = [
     ["         z Z z          ","        z                ","   /\\_____/\\             ","  ( ~  .  ~ )~~~~~~~~~~  ","   >   ^   <  zzzboard   ","  (_____)________________"],
 ]
 
-LOADING_STEPS = ["waking up slowly...","checking for updates...","peeking at the weather...","asking the moon what phase it is...","brewing something warm...","cozy and ready ~"]
+LOADING_STEPS = ["waking up slowly...","checking for updates...","peeking at the weather...","asking the moon what phase it is...","brewing something warm...","cozy and ready"]
 
 # ── Screensaver ────────────────────────────────────────────────────────────────
-SCREENSAVER_IDLE_SECS = 300  # 5 minutes
+SCREENSAVER_IDLE_SECS = 300
 
 def screensaver_screen():
     idx = int(time.time() * 2) % len(CAT_FRAMES)
     t   = Text(justify="center")
     t.append("\n\n\n\n")
-    colors = [CLR["CLR_CLOCK"], CLR["CLR_WEATHER"], CLR["CLR_MOON"], CLR["CLR_TASKS"], CLR["CLR_CPU"]]
-    for i, line in enumerate(ZZBOARD_LOGO):
-        t.append(line + "\n", style=f"bold {colors[i % len(colors)]}")
+    colors = [CLR["CLR_CLOCK"],CLR["CLR_WEATHER"],CLR["CLR_MOON"],CLR["CLR_TASKS"],CLR["CLR_CPU"]]
+    for i,line in enumerate(ZZBOARD_LOGO): t.append(line+"\n",style=f"bold {colors[i%len(colors)]}")
     t.append("\n")
-    for line in CAT_FRAMES[idx]:
-        t.append(line + "\n", style=CLR["CLR_CLOCK"])
+    for line in CAT_FRAMES[idx]: t.append(line+"\n",style=CLR["CLR_CLOCK"])
     t.append("\n")
-    t.append(f"  {ss_msg}\n", style=f"dim {CLR['CLR_DIM']}")
+    t.append(f"  {ss_msg}\n",style=f"dim {CLR['CLR_DIM']}")
     t.append("\n")
-    now = datetime.now()
-    t.append(f"  {now.strftime('%H:%M')}  ~  press any key to wake up\n", style=f"italic dim {CLR['CLR_DIM']}")
-    return Align.center(t, vertical="middle")
+    now=datetime.now()
+    t.append(f"  {now.strftime('%H:%M')}  —  press any key to wake up\n",style=f"italic dim {CLR['CLR_DIM']}")
+    return Align.center(t,vertical="middle")
 
 # ── Weather doodles ────────────────────────────────────────────────────────────
 WEATHER_DOODLES = {
@@ -291,72 +407,103 @@ WEATHER_CODES = {
     96:("hail storm","storm"),99:("hail storm","storm"),
 }
 
+WMO_HOURLY = {
+    0:"clear",1:"clear",2:"cloudy",3:"overcast",45:"fog",48:"fog",
+    51:"drizzle",53:"drizzle",55:"drizzle",61:"rain",63:"rain",65:"rain",
+    71:"snow",73:"snow",75:"snow",80:"showers",81:"showers",82:"showers",
+    95:"storm",96:"storm",99:"storm",
+}
+
 def get_weather_url(lat, lon):
     return (f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
             f"&current=temperature_2m,weathercode,windspeed_10m,relative_humidity_2m"
+            f"&hourly=temperature_2m,weathercode&forecast_days=1"
             f"&daily=sunrise,sunset&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=auto")
 
 def search_cities(name):
     try:
-        r = requests.get(f"https://geocoding-api.open-meteo.com/v1/search?name={name}&count=10", verify=False, timeout=5).json()
-        return r.get("results", [])
+        r = requests.get(f"https://geocoding-api.open-meteo.com/v1/search?name={name}&count=10",verify=False,timeout=5).json()
+        return r.get("results",[])
     except Exception:
         return []
 
 def fetch_weather(cfg):
-    lat = cfg.get("city_lat"); lon = cfg.get("city_lon")
+    lat=cfg.get("city_lat"); lon=cfg.get("city_lon")
     if not lat or not lon:
-        weather_meta["not_found"] = True
-        weather_cache["error"] = "no city set ~"
-        return
-    weather_meta.update({"url": get_weather_url(lat, lon), "city": cfg.get("city",""), "country": cfg.get("city_country",""), "not_found": False})
+        weather_meta["not_found"]=True; weather_cache["error"]="No city set. Go to Settings > Reset City."; return
+    weather_meta.update({"url":get_weather_url(lat,lon),"city":cfg.get("city",""),"country":cfg.get("city_country",""),"not_found":False})
     while True:
-        if time.time() - weather_cache["last"] > 300:
+        if time.time()-weather_cache["last"]>300:
             try:
-                r = requests.get(weather_meta["url"], verify=False, timeout=5)
-                r.raise_for_status()
-                data = r.json()
-                weather_cache.update({"data": data, "error": None, "last": time.time()})
+                r=requests.get(weather_meta["url"],verify=False,timeout=5); r.raise_for_status()
+                data=r.json(); weather_cache.update({"data":data,"error":None,"last":time.time()})
                 try:
-                    daily = data.get("daily", {})
-                    sr = daily.get("sunrise", [None])[0]
-                    ss = daily.get("sunset",  [None])[0]
-                    if sr: sun_cache["sunrise"] = sr.split("T")[1] if "T" in sr else sr
-                    if ss: sun_cache["sunset"]  = ss.split("T")[1] if "T" in ss else ss
-                except Exception:
-                    pass
+                    daily=data.get("daily",{}); sr=daily.get("sunrise",[None])[0]; ss=daily.get("sunset",[None])[0]
+                    if sr: sun_cache["sunrise"]=sr.split("T")[1] if "T" in sr else sr
+                    if ss: sun_cache["sunset"]=ss.split("T")[1] if "T" in ss else ss
+                except Exception: pass
             except Exception as e:
-                weather_cache["error"] = str(e)[:40]
+                weather_cache["error"]=f"Could not fetch weather. Check your internet connection."
         time.sleep(30)
 
 def weather_panel(temp_unit="F"):
-    t = Text(); t.append("\n")
-    d = weather_cache["data"]
+    t=Text(); t.append("\n")
+    d=weather_cache["data"]
     if weather_meta.get("not_found"):
-        t.append("  city not found ~\n\n", style="bold #FF4444")
-        t.append("  go to settings to reset city\n", style=f"dim {CLR['CLR_WEATHER']}")
+        t.append("  City not found.\n\n",style="bold #FF4444")
+        t.append("  Go to Settings > Reset City\n",style=f"dim {CLR['CLR_WEATHER']}")
     elif not d:
-        t.append(f"  {weather_cache.get('error') or 'fetching the weather ~'}\n", style=f"dim {CLR['CLR_DIM']}")
+        err=weather_cache.get("error","Fetching weather...")
+        t.append(f"  {err}\n",style=f"dim {CLR['CLR_DIM']}")
     else:
         try:
-            cur  = d["current"]
-            temp = cur["temperature_2m"]
-            if temp_unit == "C": temp = (temp - 32) * 5 / 9
-            wind = cur["windspeed_10m"]; hum = cur["relative_humidity_2m"]
-            desc, kind = WEATHER_CODES.get(cur["weathercode"], ("unknown","cloudy"))
-            for line in WEATHER_DOODLES.get(kind, WEATHER_DOODLES["cloudy"]):
-                t.append(f"  {line}\n", style=CLR["CLR_WEATHER"])
-            t.append(f"\n  {temp:.0f}{temp_unit}  {desc}\n", style=f"bold {CLR['CLR_WEATHER']}")
-            t.append(f"  wind {wind:.0f} mph  ~  humid {hum:.0f}%\n", style=f"dim {CLR['CLR_WEATHER']}")
-            city  = weather_meta["city"]; state = _cfg_ref.get("city_state",""); cntry = weather_meta["country"]
-            loc = f"{city}, {state}, {cntry}" if state else f"{city}, {cntry}"
-            t.append(f"\n  {loc}\n", style=f"italic dim {CLR['CLR_DIM']}")
+            cur=d["current"]; temp=cur["temperature_2m"]
+            if temp_unit=="C": temp=(temp-32)*5/9
+            wind=cur["windspeed_10m"]; hum=cur["relative_humidity_2m"]
+            desc,kind=WEATHER_CODES.get(cur["weathercode"],("unknown","cloudy"))
+            for line in WEATHER_DOODLES.get(kind,WEATHER_DOODLES["cloudy"]):
+                t.append(f"  {line}\n",style=CLR["CLR_WEATHER"])
+            t.append(f"\n  {temp:.0f}{temp_unit}  {desc}\n",style=f"bold {CLR['CLR_WEATHER']}")
+            t.append(f"  wind {wind:.0f} mph  |  humid {hum:.0f}%\n",style=f"dim {CLR['CLR_WEATHER']}")
+            city=weather_meta["city"]; state=_cfg_ref.get("city_state",""); cntry=weather_meta["country"]
+            loc=f"{city}, {state}, {cntry}" if state else f"{city}, {cntry}"
+            t.append(f"\n  {loc}\n",style=f"italic dim {CLR['CLR_DIM']}")
             if sun_cache["sunrise"]:
-                t.append(f"\n  sunrise  {sun_cache['sunrise']}\n", style=f"dim {CLR['CLR_WEATHER']}")
-                t.append(f"  sunset   {sun_cache['sunset']}\n",    style=f"dim {CLR['CLR_WEATHER']}")
+                t.append(f"\n  sunrise  {sun_cache['sunrise']}\n",style=f"dim {CLR['CLR_WEATHER']}")
+                t.append(f"  sunset   {sun_cache['sunset']}\n",style=f"dim {CLR['CLR_WEATHER']}")
         except Exception:
-            t.append("  hmm, something went wrong ~\n", style=f"dim {CLR['CLR_DIM']}")
-    return Panel(t, title=f"[{CLR['CLR_WEATHER']}]> weather[/{CLR['CLR_WEATHER']}]", border_style=CLR["CLR_WEATHER"], box=box.ROUNDED)
+            t.append("  Error reading weather data.\n",style=f"dim {CLR['CLR_DIM']}")
+    return Panel(t,title=f"[{CLR['CLR_WEATHER']}]> weather[/{CLR['CLR_WEATHER']}]",border_style=CLR["CLR_WEATHER"],box=box.ROUNDED)
+
+def hourly_panel(temp_unit="F"):
+    t=Text(); t.append("\n")
+    d=weather_cache["data"]
+    if not d:
+        t.append("  Fetching forecast...\n",style=f"dim {CLR['CLR_DIM']}")
+    else:
+        try:
+            hourly=d.get("hourly",{}); temps=hourly.get("temperature_2m",[]); codes=hourly.get("weathercode",[])
+            times=hourly.get("time",[]); now_h=datetime.now().hour
+            t.append(f"  {'HR':<5}{'TEMP':>6}  {'CONDITIONS':<14}\n",style=f"bold {CLR['CLR_WEATHER']}")
+            t.append(f"  {'─'*5}{'─'*6}  {'─'*14}\n",style=f"dim {CLR['CLR_DIM']}")
+            shown=0
+            for i,ts in enumerate(times):
+                try:
+                    h=int(ts.split("T")[1][:2])
+                except Exception:
+                    continue
+                if h<now_h: continue
+                if shown>=6: break
+                temp=temps[i] if i<len(temps) else 0
+                if temp_unit=="C": temp=(temp-32)*5/9
+                code=codes[i] if i<len(codes) else 0
+                cond=WMO_HOURLY.get(code,"?")
+                ampm=f"{h%12 or 12}{'am' if h<12 else 'pm'}"
+                t.append(f"  {ampm:<5}{temp:>5.0f}{temp_unit}  {cond:<14}\n",style=CLR["CLR_WEATHER"])
+                shown+=1
+        except Exception:
+            t.append("  Could not load forecast.\n",style=f"dim {CLR['CLR_DIM']}")
+    return Panel(t,title=f"[{CLR['CLR_WEATHER']}]> next 6 hours[/{CLR['CLR_WEATHER']}]",border_style=CLR["CLR_WEATHER"],box=box.ROUNDED)
 
 # ── Moon ───────────────────────────────────────────────────────────────────────
 MOON_ART = {
@@ -365,118 +512,111 @@ MOON_ART = {
     "First Quarter":   ["    _..._    ","  .'    '.   "," /    ### \\ ","|     ####  |"," \\    ### / ","  '._  _.'   ","    `---'    "],
     "Waxing Gibbous":  ["    _..._    ","  .' ####'.  "," / ####### \\ ","| ########  |"," \\ ####### / ","  '.####_.'  ","    `---'    "],
     "Full Moon":       ["    _..._    ","  .#######.  "," /##########\\","|############|"," \\##########/","  '#######'  ","    `---'    "],
-    "Waning Gibbous":  ["    _..._    ","  '.#####'.  "," /####### \\ ","|########   |"," \\####### / ","  '.#####.'  ","    `---'    "],
+    "Waning Gibbous":  ["    _..._    ","  '.#####'.  "," /####### \\ ","|########   |"," \\ ####### / ","  '.#####.'  ","    `---'    "],
     "Last Quarter":    ["    _..._    ","  .'###  '.  "," /####    \\ ","|#####      |"," \\####    / ","  '.###_.'   ","    `---'    "],
     "Waning Crescent": ["    _..._    ","  .' **  '.  "," /  ***    \\ ","|  ****     |"," \\  ***    / ","  '.  **_.'  ","    `---'    "],
 }
 
 def get_moon_phase():
-    now = datetime.now(timezone.utc); ref = datetime(2000, 1, 6, 18, 14, tzinfo=timezone.utc)
-    pct = ((now - ref).total_seconds() % (29.53058867 * 86400)) / (29.53058867 * 86400)
-    names = ["New Moon","Waxing Crescent","First Quarter","Waxing Gibbous","Full Moon","Waning Gibbous","Last Quarter","Waning Crescent"]
-    phase = names[int(pct * 8) % 8]; illum = int(abs(math.sin(pct * math.pi)) * 100)
-    days_into = pct * 29.53; days_to_full = abs(int(14.765 - days_into if days_into < 14.765 else 29.53 - days_into + 14.765))
-    return phase, illum, days_to_full
+    now=datetime.now(timezone.utc); ref=datetime(2000,1,6,18,14,tzinfo=timezone.utc)
+    pct=((now-ref).total_seconds()%(29.53058867*86400))/(29.53058867*86400)
+    names=["New Moon","Waxing Crescent","First Quarter","Waxing Gibbous","Full Moon","Waning Gibbous","Last Quarter","Waning Crescent"]
+    phase=names[int(pct*8)%8]; illum=int(abs(math.sin(pct*math.pi))*100)
+    days_into=pct*29.53; days_to_full=abs(int(14.765-days_into if days_into<14.765 else 29.53-days_into+14.765))
+    return phase,illum,days_to_full
 
 def moon_panel():
-    phase, illum, days = get_moon_phase()
-    t = Text(); t.append("\n")
-    for line in MOON_ART.get(phase, MOON_ART["Full Moon"]): t.append(f"  {line}\n", style=CLR["CLR_MOON"])
-    t.append(f"\n  {phase.lower()}\n", style=f"bold {CLR['CLR_MOON']}")
-    t.append(f"  {illum}% illuminated\n", style=f"dim {CLR['CLR_MOON']}")
-    t.append(f"\n  {days} days to full moon\n", style=f"italic dim {CLR['CLR_DIM']}")
-    return Panel(t, title=f"[{CLR['CLR_MOON']}]> moon[/{CLR['CLR_MOON']}]", border_style=CLR["CLR_MOON"], box=box.ROUNDED)
+    phase,illum,days=get_moon_phase()
+    t=Text(); t.append("\n")
+    for line in MOON_ART.get(phase,MOON_ART["Full Moon"]): t.append(f"  {line}\n",style=CLR["CLR_MOON"])
+    t.append(f"\n  {phase.lower()}\n",style=f"bold {CLR['CLR_MOON']}")
+    t.append(f"  {illum}% illuminated\n",style=f"dim {CLR['CLR_MOON']}")
+    t.append(f"\n  {days} days to full moon\n",style=f"italic dim {CLR['CLR_DIM']}")
+    return Panel(t,title=f"[{CLR['CLR_MOON']}]> moon[/{CLR['CLR_MOON']}]",border_style=CLR["CLR_MOON"],box=box.ROUNDED)
 
 # ── Spotify ────────────────────────────────────────────────────────────────────
-def init_spotify(cid, cs):
-    if not spotipy or not cid or not cs:
-        spotify_cache["error"] = "no keys set ~"; return
+def init_spotify(cid,cs):
+    if not spotipy or not cid or not cs: spotify_cache["error"]="No Spotify keys set."; return
     try:
-        session = requests.Session(); session.verify = False
-        sp = spotipy.Spotify(
-            auth_manager=SpotifyOAuth(
-                client_id=cid, client_secret=cs,
-                redirect_uri="http://127.0.0.1:8888/callback",
-                scope="user-read-playback-state user-read-currently-playing user-read-playback-position",
-                open_browser=False, cache_path=SPOTIFY_CACHE, requests_session=session,
-            ),
-            requests_session=session,
-        )
+        session=requests.Session(); session.verify=False
+        sp=spotipy.Spotify(
+            auth_manager=SpotifyOAuth(client_id=cid,client_secret=cs,redirect_uri="http://127.0.0.1:8888/callback",
+                scope="user-read-playback-state user-read-currently-playing",
+                open_browser=False,cache_path=SPOTIFY_CACHE,requests_session=session),
+            requests_session=session)
         sp.current_playback()
-        spotify_cache.update({"sp": sp, "authed": True, "error": None})
+        spotify_cache.update({"sp":sp,"authed":True,"error":None,"starting":False})
     except Exception as e:
-        spotify_cache["error"] = str(e)[:60]
+        spotify_cache["error"]=f"Spotify connection failed. Check your keys."; spotify_cache["starting"]=False
 
-def fetch_spotify(cid, cs):
-    init_spotify(cid, cs)
+def fetch_spotify(cid,cs):
+    init_spotify(cid,cs)
     while True:
-        sp = spotify_cache.get("sp")
+        sp=spotify_cache.get("sp")
         if sp:
             try:
-                spotify_cache["data"]  = sp.current_playback()
-                spotify_cache["error"] = None
-                # Fetch queue
+                spotify_cache["data"]=sp.current_playback(); spotify_cache["error"]=None
                 try:
-                    q = sp.queue()
-                    spotify_cache["queue"] = q.get("queue", [])[:3] if q else []
-                except Exception:
-                    spotify_cache["queue"] = []
+                    q=sp.queue(); spotify_cache["queue"]=q.get("queue",[])[:3] if q else []
+                except Exception: spotify_cache["queue"]=[]
             except Exception as e:
-                spotify_cache["error"] = str(e)[:40]
+                spotify_cache["error"]="Lost connection to Spotify. Will retry."
         time.sleep(5)
 
 def ms_to_str(ms):
-    s = ms // 1000; return f"{s // 60}:{s % 60:02d}"
+    s=ms//1000; return f"{s//60}:{s%60:02d}"
 
 def spotify_panel():
-    t = Text(); t.append("\n")
+    t=Text(); t.append("\n")
     if not _cfg_ref.get("spotify_client_id"):
-        t.append("  spotify isn't set up yet ~\n\n", style=f"dim {CLR['CLR_DIM']}")
-        t.append("  settings > advanced to add keys\n", style=f"dim {CLR['CLR_SPOTIFY']}")
-        return Panel(t, title=f"[{CLR['CLR_SPOTIFY']}]> spotify[/{CLR['CLR_SPOTIFY']}]", border_style=CLR["CLR_SPOTIFY"], box=box.ROUNDED)
+        t.append("  Spotify is not set up.\n\n",style=f"dim {CLR['CLR_DIM']}")
+        t.append("  Go to Settings > Advanced\n",style=f"dim {CLR['CLR_SPOTIFY']}")
+        t.append("  to add your API keys.\n",style=f"dim {CLR['CLR_SPOTIFY']}")
+        return Panel(t,title=f"[{CLR['CLR_SPOTIFY']}]> spotify[/{CLR['CLR_SPOTIFY']}]",border_style=CLR["CLR_SPOTIFY"],box=box.ROUNDED)
     if not spotify_cache["authed"]:
-        t.append(f"  {spotify_cache.get('error','waking up ~')}\n", style=f"dim {CLR['CLR_DIM']}")
-        return Panel(t, title=f"[{CLR['CLR_SPOTIFY']}]> spotify[/{CLR['CLR_SPOTIFY']}]", border_style=CLR["CLR_SPOTIFY"], box=box.ROUNDED)
-    pb = spotify_cache.get("data")
+        msg=spotify_cache.get("error","Connecting to Spotify...")
+        if spotify_cache.get("starting"): msg="Connecting to Spotify..."
+        t.append(f"  {msg}\n",style=f"dim {CLR['CLR_DIM']}")
+        return Panel(t,title=f"[{CLR['CLR_SPOTIFY']}]> spotify[/{CLR['CLR_SPOTIFY']}]",border_style=CLR["CLR_SPOTIFY"],box=box.ROUNDED)
+    pb=spotify_cache.get("data")
     if not pb or not pb.get("item"):
-        t.append("  nothing playing right now ~\n", style=f"dim {CLR['CLR_DIM']}")
+        t.append("  Nothing playing.\n",style=f"dim {CLR['CLR_DIM']}")
     elif not pb.get("is_playing"):
-        t.append("  on pause ~\n", style=f"dim {CLR['CLR_DIM']}")
-        t.append(f"  {pb['item']['name'][:34]}\n", style=f"dim {CLR['CLR_SPOTIFY']}")
-        t.append(f"  {pb['item']['artists'][0]['name'][:34]}\n", style=f"dim {CLR['CLR_DIM']}")
+        t.append("  Paused\n",style=f"dim {CLR['CLR_DIM']}")
+        t.append(f"  {pb['item']['name'][:34]}\n",style=f"dim {CLR['CLR_SPOTIFY']}")
+        t.append(f"  {pb['item']['artists'][0]['name'][:34]}\n",style=f"dim {CLR['CLR_DIM']}")
     else:
         try:
-            item = pb["item"]; progress = pb["progress_ms"]; duration = item["duration_ms"]
-            pct  = (progress / duration * 100) if duration else 0; fill = int(pct / 100 * 34)
-            t.append("  now playing ~\n", style=f"bold {CLR['CLR_SPOTIFY']}")
-            t.append(f"  {item['name'][:34]}\n", style=f"bold {CLR['CLR_SPOTIFY']}")
-            t.append(f"  {', '.join(a['name'] for a in item['artists'])[:34]}\n", style=f"dim {CLR['CLR_SPOTIFY']}")
-            t.append(f"  {item['album']['name'][:34]}\n\n", style=f"italic dim {CLR['CLR_DIM']}")
-            t.append("  [", style=f"dim {CLR['CLR_DIM']}")
-            t.append("#"*fill, style=f"bold {CLR['CLR_SPOTIFY']}")
-            t.append("-"*(34-fill), style=f"dim {CLR['CLR_DIM']}")
-            t.append(f"]  {ms_to_str(progress)}/{ms_to_str(duration)}\n", style=f"dim {CLR['CLR_DIM']}")
-            vol = pb.get("device",{}).get("volume_percent","?"); device = pb.get("device",{}).get("name","")[:20]
-            t.append(f"\n  vol {vol}%  {device}\n", style=f"dim {CLR['CLR_DIM']}")
-            # Queue
-            queue = spotify_cache.get("queue", [])
+            item=pb["item"]; progress=pb["progress_ms"]; duration=item["duration_ms"]
+            pct=(progress/duration*100) if duration else 0; fill=int(pct/100*34)
+            t.append("  Now Playing\n",style=f"bold {CLR['CLR_SPOTIFY']}")
+            t.append(f"  {item['name'][:34]}\n",style=f"bold {CLR['CLR_SPOTIFY']}")
+            t.append(f"  {', '.join(a['name'] for a in item['artists'])[:34]}\n",style=f"dim {CLR['CLR_SPOTIFY']}")
+            t.append(f"  {item['album']['name'][:34]}\n\n",style=f"italic dim {CLR['CLR_DIM']}")
+            t.append("  [",style=f"dim {CLR['CLR_DIM']}")
+            t.append("#"*fill,style=f"bold {CLR['CLR_SPOTIFY']}")
+            t.append("-"*(34-fill),style=f"dim {CLR['CLR_DIM']}")
+            t.append(f"]  {ms_to_str(progress)}/{ms_to_str(duration)}\n",style=f"dim {CLR['CLR_DIM']}")
+            vol=pb.get("device",{}).get("volume_percent","?"); device=pb.get("device",{}).get("name","")[:20]
+            t.append(f"\n  vol {vol}%  {device}\n",style=f"dim {CLR['CLR_DIM']}")
+            queue=spotify_cache.get("queue",[])
             if queue:
-                t.append(f"\n  up next ~\n", style=f"dim {CLR['CLR_SPOTIFY']}")
-                for i, track in enumerate(queue):
-                    name    = track.get("name","")[:28]
-                    artists = ", ".join(a["name"] for a in track.get("artists",[]))[:20]
-                    t.append(f"  {i+1}. {name}\n", style=f"dim {CLR['CLR_SPOTIFY']}")
-                    t.append(f"     {artists}\n",   style=f"dim {CLR['CLR_DIM']}")
+                t.append(f"\n  Up Next\n",style=f"dim {CLR['CLR_SPOTIFY']}")
+                for i,track in enumerate(queue):
+                    name=track.get("name","")[:28]; artists=", ".join(a["name"] for a in track.get("artists",[]))[:20]
+                    t.append(f"  {i+1}. {name}\n",style=f"dim {CLR['CLR_SPOTIFY']}")
+                    t.append(f"     {artists}\n",style=f"dim {CLR['CLR_DIM']}")
         except Exception:
-            t.append("  hmm, something went wrong ~\n", style=f"dim {CLR['CLR_DIM']}")
-    return Panel(t, title=f"[{CLR['CLR_SPOTIFY']}]> spotify[/{CLR['CLR_SPOTIFY']}]", border_style=CLR["CLR_SPOTIFY"], box=box.ROUNDED)
+            t.append("  Error reading track data.\n",style=f"dim {CLR['CLR_DIM']}")
+    return Panel(t,title=f"[{CLR['CLR_SPOTIFY']}]> spotify[/{CLR['CLR_SPOTIFY']}]",border_style=CLR["CLR_SPOTIFY"],box=box.ROUNDED)
 
 # ── Settings ───────────────────────────────────────────────────────────────────
 SETTINGS_MAIN = [
-    ("theme",        "theme",          ["green","blue","pink","amber","red"]),
+    ("theme",        "theme",          ["pink","green","blue","amber","red","nord","dracula","synthwave"]),
     ("temperature",  "temp_unit",      ["F","C"]),
     ("time format",  "time_format",    ["24","12"]),
-    ("auto speed",   "speed_interval", [30, 60, 120, 0]),
+    ("auto speed",   "speed_interval", [30,60,120,0]),
+    ("low light",    "low_light",      [False,True]),
     ("reset city",   "_reset_city",    None),
     ("force update", "_force_update",  None),
     ("advanced -->", "_advanced",      None),
@@ -487,25 +627,26 @@ SETTINGS_ADV = [
     ("< back",                "_back",                 None),
 ]
 
-def settings_label(key, val):
-    if key == "speed_interval": return "never" if val == 0 else f"{val}m"
+def settings_label(key,val):
+    if key=="speed_interval": return "never" if val==0 else f"{val}m"
+    if key=="low_light": return "on" if val else "off"
     return str(val)
 
 def settings_panel(cfg):
-    section = settings_cursor["section"]; items = SETTINGS_ADV if section == "advanced" else SETTINGS_MAIN
-    pos = settings_cursor["pos"]; t = Text(); t.append("\n")
-    if section == "advanced":
-        t.append("  advanced settings ~\n\n", style=f"bold {CLR['CLR_CLOCK']}")
-        t.append("  W/S=navigate  Enter=edit\n\n", style=f"dim {CLR['CLR_DIM']}")
+    section=settings_cursor["section"]; items=SETTINGS_ADV if section=="advanced" else SETTINGS_MAIN
+    pos=settings_cursor["pos"]; t=Text(); t.append("\n")
+    if section=="advanced":
+        t.append("  Advanced Settings\n\n",style=f"bold {CLR['CLR_CLOCK']}")
+        t.append("  W/S to navigate  Enter to edit\n\n",style=f"dim {CLR['CLR_DIM']}")
         for i,(label,key,_) in enumerate(items):
             sel=i==pos; pre="  [>] " if sel else "  [ ] "; sty=f"bold {CLR['CLR_CLOCK']}" if sel else f"dim {CLR['CLR_DIM']}"
             if key in ("spotify_client_id","spotify_client_secret"):
-                val=cfg.get(key,""); disp=val[:6]+"..." if len(val)>6 else (val or "not set ~")
+                val=cfg.get(key,""); disp=val[:6]+"..." if len(val)>6 else (val or "not set")
                 t.append(pre,style=sty); t.append(f"{label:<28}",style=sty); t.append(f"{disp}\n",style=f"dim {CLR['CLR_WEATHER']}")
             else:
                 t.append(pre,style=sty); t.append(f"{label}\n",style=sty)
     else:
-        t.append("  W/S=move  A/D=change  Enter=confirm\n\n", style=f"dim {CLR['CLR_DIM']}")
+        t.append("  W/S to move  A/D to change  Enter to confirm\n\n",style=f"dim {CLR['CLR_DIM']}")
         for i,(label,key,options) in enumerate(items):
             sel=i==pos; pre="  [>] " if sel else "  [ ] "; sty=f"bold {CLR['CLR_CLOCK']}" if sel else f"dim {CLR['CLR_DIM']}"
             if options is None:
@@ -519,14 +660,14 @@ def settings_panel(cfg):
                 t.append("\n")
     if settings_msg["text"] and time.time()-settings_msg["time"]<4:
         t.append(f"\n  {settings_msg['text']}\n",style=f"bold {settings_msg['color']}")
-    if section != "advanced":
-        t.append(f"\n  theme preview ~\n",style=f"dim {CLR['CLR_DIM']}")
+    if section!="advanced":
+        t.append(f"\n  Theme preview\n",style=f"dim {CLR['CLR_DIM']}")
         for name,colors in THEMES.items():
             marker=" [*]" if name==cfg.get("theme","pink") else "  o "
             t.append(f"  {marker} {name}\n",style=f"bold {colors['CLR_CLOCK']}")
     return Panel(t,title=f"[{CLR['CLR_CLOCK']}]> settings[/{CLR['CLR_CLOCK']}]",border_style=CLR["CLR_CLOCK"],box=box.ROUNDED)
 
-def process_settings_key(ktype, kval, cfg):
+def process_settings_key(ktype,kval,cfg):
     section=settings_cursor["section"]; items=SETTINGS_ADV if section=="advanced" else SETTINGS_MAIN
     pos=settings_cursor["pos"]; label,key,options=items[pos]
 
@@ -535,7 +676,8 @@ def process_settings_key(ktype, kval, cfg):
         val=cfg.get(key,options[0]); idx=options.index(val) if val in options else 0
         nv=options[(idx+delta)%len(options)]; cfg[key]=nv; save_config(cfg)
         if key=="theme": apply_theme(nv)
-        settings_msg.update({"text":"saved ~","color":CLR["CLR_CLOCK"],"time":time.time()})
+        if key=="low_light": apply_theme(cfg.get("theme","pink"))
+        settings_msg.update({"text":"Saved","color":CLR["CLR_CLOCK"],"time":time.time()})
 
     if ktype=="arrow":
         if kval=="H": settings_cursor["pos"]=(pos-1)%len(items)
@@ -547,35 +689,141 @@ def process_settings_key(ktype, kval, cfg):
         elif kval=="s": settings_cursor["pos"]=(pos+1)%len(items)
         elif kval=="a": cycle(-1)
         elif kval=="d": cycle(1)
-        elif kval in ("\r", "\n", "\r\n"):
+        elif kval=="\r":
             if key=="_reset_city":
                 cfg["city"]=""; save_config(cfg)
-                settings_msg.update({"text":"resetting ~","color":"#FF4444","time":time.time()})
+                settings_msg.update({"text":"Resetting city...","color":"#FF4444","time":time.time()})
                 threading.Thread(target=city_reset_countdown,daemon=False).start()
             elif key=="_force_update":
                 update_status.update({"checked":False,"updated":False,"error":None,"log":[]})
                 threading.Thread(target=check_for_update,daemon=True).start()
-                settings_msg.update({"text":"checking for updates ~","color":CLR["CLR_SPEED"],"time":time.time()})
+                settings_msg.update({"text":"Checking for updates...","color":CLR["CLR_SPEED"],"time":time.time()})
             elif key=="_advanced":
                 settings_cursor["section"]="advanced"; settings_cursor["pos"]=0
             elif key=="_back":
                 settings_cursor["section"]="main"; settings_cursor["pos"]=0
             elif key in ("spotify_client_id","spotify_client_secret"):
                 console.clear()
-                console.print(f"\n  [{CLR['CLR_CLOCK']}]enter {label} ~[/{CLR['CLR_CLOCK']}]")
+                console.print(f"\n  [{CLR['CLR_CLOCK']}]Enter {label}[/{CLR['CLR_CLOCK']}]")
                 console.print(f"  [{CLR['CLR_DIM']}](current: {cfg.get(key,'not set')[:20]})[/{CLR['CLR_DIM']}]\n")
                 val=console.input(f"  [{CLR['CLR_WEATHER']}]>[/{CLR['CLR_WEATHER']}] ").strip()
+                time.sleep(0.1)
+                with key_lock: key_queue.clear()
                 if val:
                     cfg[key]=val; save_config(cfg)
-                    settings_msg.update({"text":"saved ~ restart to apply spotify","color":CLR["CLR_SPOTIFY"],"time":time.time()})
+                    cid=cfg.get("spotify_client_id",""); cs=cfg.get("spotify_client_secret","")
+                    if cid and cs and not spotify_cache["authed"] and not spotify_cache.get("starting"):
+                        spotify_cache["starting"]=True
+                        threading.Thread(target=lambda:fetch_spotify(cid,cs),daemon=True).start()
+                        settings_msg.update({"text":"Spotify connecting...","color":CLR["CLR_SPOTIFY"],"time":time.time()})
+                    else:
+                        settings_msg.update({"text":"Saved","color":CLR["CLR_SPOTIFY"],"time":time.time()})
                 else:
-                    settings_msg.update({"text":"no change ~","color":CLR["CLR_DIM"],"time":time.time()})
+                    settings_msg.update({"text":"No change","color":CLR["CLR_DIM"],"time":time.time()})
             elif options:
                 cycle(1)
 
+# ── Tetris ─────────────────────────────────────────────────────────────────────
+TET_W, TET_H = 10, 20
+
+TETROMINOES = {
+    "I": [[(0,0),(1,0),(2,0),(3,0)],[(0,0),(0,1),(0,2),(0,3)]],
+    "O": [[(0,0),(1,0),(0,1),(1,1)]],
+    "T": [[(0,0),(1,0),(2,0),(1,1)],[(0,0),(0,1),(0,2),(1,1)],[(0,1),(1,1),(2,1),(1,0)],[(1,0),(1,1),(1,2),(0,1)]],
+    "S": [[(1,0),(2,0),(0,1),(1,1)],[(0,0),(0,1),(1,1),(1,2)]],
+    "Z": [[(0,0),(1,0),(1,1),(2,1)],[(1,0),(0,1),(1,1),(0,2)]],
+    "J": [[(0,0),(0,1),(1,1),(2,1)],[(0,0),(1,0),(0,1),(0,2)],[(0,0),(1,0),(2,0),(2,1)],[(1,0),(1,1),(0,2),(1,2)]],
+    "L": [[(2,0),(0,1),(1,1),(2,1)],[(0,0),(0,1),(0,2),(1,2)],[(0,0),(1,0),(2,0),(0,1)],[(0,0),(1,0),(1,1),(1,2)]],
+}
+TET_COLORS = {"I":CLR_BASE.get("CLR_WEATHER","#6BCBFF"),"O":"#FFD700","T":"#BD93F9","S":"#50FA7B","Z":"#FF5555","J":"#FF9F43","L":"#FFB86C"}
+
+tet_state = {
+    "board":     [[None]*TET_W for _ in range(TET_H)],
+    "piece":     None,
+    "piece_x":   0,
+    "piece_y":   0,
+    "rotation":  0,
+    "score":     0,
+    "level":     1,
+    "lines":     0,
+    "alive":     False,
+    "next":      None,
+}
+
+def tet_new_piece():
+    name=random.choice(list(TETROMINOES.keys()))
+    tet_state["piece"]=name; tet_state["rotation"]=0
+    tet_state["piece_x"]=TET_W//2-2; tet_state["piece_y"]=0
+    if not tet_valid(tet_state["piece_x"],tet_state["piece_y"],tet_state["rotation"]):
+        tet_state["alive"]=False
+        if tet_state["score"]>high_scores["tetris"]:
+            high_scores["tetris"]=tet_state["score"]; save_high_scores()
+
+def tet_valid(x,y,rot):
+    if not tet_state["piece"]: return False
+    shape=TETROMINOES[tet_state["piece"]][rot%len(TETROMINOES[tet_state["piece"]])]
+    for bx,by in shape:
+        nx,ny=x+bx,y+by
+        if nx<0 or nx>=TET_W or ny>=TET_H: return False
+        if ny>=0 and tet_state["board"][ny][nx]: return False
+    return True
+
+def tet_place():
+    piece=tet_state["piece"]; rot=tet_state["rotation"]%len(TETROMINOES[piece])
+    shape=TETROMINOES[piece][rot]
+    for bx,by in shape:
+        nx,ny=tet_state["piece_x"]+bx,tet_state["piece_y"]+by
+        if 0<=ny<TET_H and 0<=nx<TET_W:
+            tet_state["board"][ny][nx]=piece
+    # Clear lines
+    new_board=[row for row in tet_state["board"] if any(c is None for c in row)]
+    cleared=TET_H-len(new_board)
+    tet_state["lines"]+=cleared; tet_state["score"]+=cleared*100*tet_state["level"]
+    tet_state["level"]=tet_state["lines"]//10+1
+    tet_state["board"]=[([None]*TET_W) for _ in range(cleared)]+new_board
+    tet_new_piece()
+
+def tet_tick():
+    if not tet_state["alive"]: return
+    ny=tet_state["piece_y"]+1
+    if tet_valid(tet_state["piece_x"],ny,tet_state["rotation"]):
+        tet_state["piece_y"]=ny
+    else:
+        tet_place()
+
+def tet_init():
+    tet_state["board"]=[[None]*TET_W for _ in range(TET_H)]
+    tet_state["score"]=0; tet_state["level"]=1; tet_state["lines"]=0; tet_state["alive"]=True
+    tet_new_piece()
+
+def render_tetris():
+    board=[list(row) for row in tet_state["board"]]
+    if tet_state["piece"] and tet_state["alive"]:
+        piece=tet_state["piece"]; rot=tet_state["rotation"]%len(TETROMINOES[piece])
+        for bx,by in TETROMINOES[piece][rot]:
+            nx,ny=tet_state["piece_x"]+bx,tet_state["piece_y"]+by
+            if 0<=ny<TET_H and 0<=nx<TET_W: board[ny][nx]=piece
+    t=Text()
+    t.append("\n  Score: " ,style=f"bold {CLR['CLR_TETRIS']}")
+    t.append(f"{tet_state['score']}",style=f"bold {CLR['CLR_TETRIS']}")
+    t.append(f"  Level: {tet_state['level']}",style=f"dim {CLR['CLR_TETRIS']}")
+    t.append(f"  Best: {high_scores['tetris']}\n\n",style=f"dim {CLR['CLR_DIM']}")
+    for row in board:
+        t.append("  |",style=f"dim {CLR['CLR_DIM']}")
+        for cell in row:
+            if cell: t.append("##",style=f"bold {CLR['CLR_TETRIS']}")
+            else: t.append("  ",style=f"dim {CLR['CLR_DIM']}")
+        t.append("|\n",style=f"dim {CLR['CLR_DIM']}")
+    t.append("  "+"-"*(TET_W*2+2)+"\n",style=f"dim {CLR['CLR_DIM']}")
+    if not tet_state["alive"]:
+        t.append(f"\n  Game Over!  Score: {tet_state['score']}  Best: {high_scores['tetris']}  Press T to restart\n",style=f"bold {CLR['CLR_TETRIS']}")
+    else:
+        t.append(f"\n  A/D=move  W=rotate  S=drop  Q=quit\n",style=f"dim {CLR['CLR_TETRIS']}")
+    return t
+
 # ── Snake ──────────────────────────────────────────────────────────────────────
-GAME_W, GAME_H = 50, 22
-game_state = {"mode":"none","snake_body":[],"snake_dir":(1,0),"snake_food":(0,0),"snake_score":0,"snake_alive":True}
+GAME_W,GAME_H=50,22
+game_state={"mode":"none","snake_body":[],"snake_dir":(1,0),"snake_food":(0,0),"snake_score":0,"snake_alive":True}
 
 def snake_init():
     cx,cy=GAME_W//2,GAME_H//2
@@ -610,16 +858,19 @@ def render_snake():
     t=Text()
     for row in grid: t.append("  "+"".join(row)+"\n",style=CLR["CLR_SNAKE"])
     if not game_state["snake_alive"]:
-        t.append(f"\n  you did great ~ score:{game_state['snake_score']}  best:{high_scores['snake']}  press S to try again\n",style=f"bold {CLR['CLR_SNAKE']}")
+        t.append(f"\n  Game Over!  Score: {game_state['snake_score']}  Best: {high_scores['snake']}  Press S to restart\n",style=f"bold {CLR['CLR_SNAKE']}")
     else:
-        t.append(f"\n  score:{game_state['snake_score']}  best:{high_scores['snake']}   WASD or arrows   Q to go back\n",style=f"dim {CLR['CLR_SNAKE']}")
+        t.append(f"\n  Score: {game_state['snake_score']}  Best: {high_scores['snake']}   WASD or arrows   Q to quit\n",style=f"dim {CLR['CLR_SNAKE']}")
     return t
 
 def game_loop():
-    ls=time.time()
+    ls=lt=time.time()
     while True:
         now=time.time()
         if game_state["mode"]=="snake" and game_state["snake_alive"] and now-ls>0.13: snake_tick(); ls=now
+        if game_state["mode"]=="tetris" and tet_state["alive"]:
+            speed=max(0.1,0.5-(tet_state["level"]-1)*0.04)
+            if now-lt>speed: tet_tick(); lt=now
         time.sleep(0.01)
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -638,12 +889,11 @@ def fmt_time(dt,fmt):
     return f"{dt.strftime('%H')}{sep}{dt.strftime('%M')}{sep}{dt.strftime('%S')}"
 
 def days_until_weekend():
-    day = datetime.now().weekday()  # 0=Mon 6=Sun
-    if day == 5: return "saturday ~"
-    if day == 6: return "sunday ~"
-    days_left = 5 - day
-    if days_left == 1: return "1 day until the weekend ~"
-    return f"{days_left} days until the weekend ~"
+    day=datetime.now().weekday()
+    if day==5: return "It's Saturday"
+    if day==6: return "It's Sunday"
+    days_left=5-day
+    return f"{days_left} day{'s' if days_left!=1 else ''} until the weekend"
 
 def file_hash(path):
     try:
@@ -662,15 +912,15 @@ def spark_line(history,width,color):
 
 # ── Auto-updater ───────────────────────────────────────────────────────────────
 def check_for_update():
-    update_status["log"].append("checking in with github ~")
+    update_status["log"].append("Checking for updates...")
     try:
         if IS_EXE:
             r=requests.get(GITHUB_LATEST_URL,verify=False,timeout=8); r.raise_for_status()
             data=r.json(); latest_tag=data.get("tag_name","")
             update_status["new_version"]=latest_tag
-            update_status["log"].append(f"latest:{latest_tag}  mine:{CURRENT_VERSION}")
+            update_status["log"].append(f"Latest: {latest_tag}  Current: {CURRENT_VERSION}")
             if latest_tag and latest_tag!=CURRENT_VERSION:
-                update_status["log"].append("something new! downloading ~")
+                update_status["log"].append("Update found! Downloading...")
                 assets=data.get("assets",[]); exe_url=next((a["browser_download_url"] for a in assets if a["name"].endswith(".exe")),None)
                 if exe_url:
                     tmp=THIS_FILE+".new"; r2=requests.get(exe_url,verify=False,timeout=60,stream=True); r2.raise_for_status()
@@ -679,18 +929,18 @@ def check_for_update():
                     bat=os.path.join(THIS_DIR,"zzboard_update.bat")
                     with open(bat,"w") as f:
                         f.write(f'@echo off\ntimeout /t 2 /nobreak >nul\nmove /y "{tmp}" "{THIS_FILE}"\nstart "" "{THIS_FILE}" --no-splash\ndel "%~f0"\n')
-                    update_status["log"].append("all ready ~"); update_status["updated"]=True; update_status["bat_path"]=bat
-                else: update_status["log"].append("hmm, no exe found ~")
-            else: update_status["log"].append("all up to date ~")
+                    update_status["log"].append("Ready to update!"); update_status["updated"]=True; update_status["bat_path"]=bat
+                else: update_status["log"].append("No exe found in release.")
+            else: update_status["log"].append("Already up to date.")
         else:
             r=requests.get(GITHUB_RAW_URL,verify=False,timeout=8); r.raise_for_status()
-            remote=r.text; update_status["log"].append("comparing ~")
+            remote=r.text; update_status["log"].append("Comparing versions...")
             if file_hash(THIS_FILE)!=hashlib.md5(remote.encode()).hexdigest():
-                update_status["log"].append("something new! downloading ~"); time.sleep(0.4)
+                update_status["log"].append("Update found! Downloading..."); time.sleep(0.4)
                 with open(THIS_FILE,"w",encoding="utf-8") as f: f.write(remote)
-                update_status["log"].append("done ~"); update_status["updated"]=True
-            else: update_status["log"].append("all up to date ~")
-    except Exception: update_status["log"].append("couldn't reach github ~")
+                update_status["log"].append("Done!"); update_status["updated"]=True
+            else: update_status["log"].append("Already up to date.")
+    except Exception: update_status["log"].append("Could not reach GitHub. Continuing offline.")
     update_status["checked"]=True
 
 def apply_exe_update_and_restart():
@@ -708,20 +958,20 @@ def show_changelog():
     t=Text(justify="center"); t.append("\n")
     colors=[CLR["CLR_CLOCK"],CLR["CLR_WEATHER"],CLR["CLR_MOON"],CLR["CLR_TASKS"],CLR["CLR_CPU"]]
     for i,line in enumerate(ZZBOARD_LOGO): t.append(line+"\n",style=f"bold {colors[i%len(colors)]}")
-    t.append("\n"); t.append("  what's new ~\n\n",style=f"bold {CLR['CLR_CLOCK']}")
+    t.append("\n"); t.append("  What's New\n\n",style=f"bold {CLR['CLR_CLOCK']}")
     for version,changes in CHANGELOG:
         t.append(f"  {version}\n",style=f"bold {CLR['CLR_WEATHER']}")
         for change in changes: t.append(f"    + {change}\n",style=f"dim {CLR['CLR_MOON']}")
         t.append("\n")
     t.append("  ============================================\n",style=f"dim {CLR['CLR_DIM']}")
-    t.append("  >>  press ENTER to enter the dashboard  <<  \n",style=f"bold {CLR['CLR_CLOCK']} reverse")
+    t.append("  >>  Press ENTER to enter the dashboard  <<  \n",style=f"bold {CLR['CLR_CLOCK']} reverse")
     t.append("  ============================================\n",style=f"dim {CLR['CLR_DIM']}")
     console.print(Align.center(t,vertical="middle")); console.print()
     try:
         import msvcrt
         while True:
             ch=msvcrt.getwch()
-            if ch in ("\r", "\n"): break
+            if ch in ("\r","\n"): break
             time.sleep(0.05)
     except Exception: time.sleep(3.0)
 
@@ -742,15 +992,15 @@ def show_update_screen():
     done=threading.Event()
     threading.Thread(target=lambda:[check_for_update(),done.set()],daemon=True).start()
     while not done.is_set():
-        log=update_status["log"][-1] if update_status["log"] else "checking in ~"
+        log=update_status["log"][-1] if update_status["log"] else "Connecting..."
         with Live(cat_screen(f"> {log}"),console=console,screen=True,refresh_per_second=3): time.sleep(0.35)
     if update_status["updated"]:
-        with Live(cat_screen("> something new! showing changelog ~"),console=console,screen=True,refresh_per_second=3): time.sleep(1.5)
+        with Live(cat_screen("> Update ready! Showing changelog..."),console=console,screen=True,refresh_per_second=3): time.sleep(1.5)
         show_changelog()
         if IS_EXE: apply_exe_update_and_restart()
         else: do_restart()
     else:
-        msg="> all up to date ~" if not update_status["error"] else "> couldn't reach github ~"
+        msg="> Already up to date." if not update_status["error"] else "> Could not reach GitHub. Continuing offline."
         with Live(cat_screen(msg),console=console,screen=True,refresh_per_second=3): time.sleep(2.0)
 
 def show_splash():
@@ -769,72 +1019,38 @@ def start_watcher():
     h=ReloadHandler(); o=Observer()
     o.schedule(h,path=os.path.dirname(THIS_FILE) or ".",recursive=False); o.start()
 
-# ── Speed test — fixed ─────────────────────────────────────────────────────────
+# ── Speed test ─────────────────────────────────────────────────────────────────
 def run_speed_test():
     if speed_cache["running"]: return
-    speed_cache["running"] = True
-    speed_cache["testing"] = True
-    speed_cache["error"]   = None
+    speed_cache["running"]=True; speed_cache["testing"]=True; speed_cache["error"]=None
     try:
-        import subprocess as sp
-        # Use speedtest-cli via subprocess — most reliable in exe context
-        result = sp.run(
-            ["speedtest-cli", "--json"],
-            capture_output=True, text=True, timeout=120
-        )
-        if result.returncode == 0:
-            data = json.loads(result.stdout)
-            speed_cache["download"] = data["download"] / 1_000_000
-            speed_cache["upload"]   = data["upload"]   / 1_000_000
-            speed_cache["ping"]     = data["ping"]
-            speed_cache["last"]     = time.time()
-        else:
-            # Fallback to speedtest library
-            try:
-                import speedtest as stlib
-                st = stlib.Speedtest()
-                st.get_best_server()
-                speed_cache["ping"]     = st.results.ping
-                st.download(); speed_cache["download"] = st.results.download / 1_000_000
-                st.upload();   speed_cache["upload"]   = st.results.upload   / 1_000_000
-                speed_cache["last"] = time.time()
-            except Exception as e2:
-                speed_cache["error"] = str(e2)[:40]
-    except FileNotFoundError:
-        # speedtest-cli not in PATH, use library directly
         try:
             import speedtest as stlib
-            st = stlib.Speedtest()
-            st.get_best_server()
-            speed_cache["ping"]     = st.results.ping
-            st.download(); speed_cache["download"] = st.results.download / 1_000_000
-            st.upload();   speed_cache["upload"]   = st.results.upload   / 1_000_000
-            speed_cache["last"] = time.time()
-        except Exception as e3:
-            speed_cache["error"] = str(e3)[:40]
-    except Exception as e:
-        speed_cache["error"] = str(e)[:40]
+            st=stlib.Speedtest(); st.get_best_server()
+            speed_cache["ping"]=st.results.ping
+            st.download(); speed_cache["download"]=st.results.download/1_000_000
+            st.upload();   speed_cache["upload"]=st.results.upload/1_000_000
+            speed_cache["last"]=time.time()
+        except Exception as e:
+            speed_cache["error"]="Speed test failed. Check your internet connection."
     finally:
-        speed_cache["testing"] = False
-        speed_cache["running"] = False
+        speed_cache["testing"]=False; speed_cache["running"]=False
 
 def fetch_speed():
     run_speed_test()
     while True:
-        mins = _cfg_ref.get("speed_interval", 30)
-        if mins == 0:
-            time.sleep(60); continue
-        time.sleep(mins * 60)
-        run_speed_test()
+        mins=_cfg_ref.get("speed_interval",30)
+        if mins==0: time.sleep(60); continue
+        time.sleep(mins*60); run_speed_test()
 
 # ── System panels ──────────────────────────────────────────────────────────────
 def clock_panel(time_format="24"):
     now=datetime.now(); t=Text(justify="center"); t.append("\n")
     t.append(fmt_time(now,time_format),style=f"bold {CLR['CLR_CLOCK']}")
     t.append("\n"); t.append(now.strftime("%A, %d %B %Y").lower(),style=f"dim {CLR['CLR_WEATHER']}")
-    t.append(f"\n  {days_until_weekend()}", style=f"italic dim {CLR['CLR_DIM']}")
+    t.append(f"\n  {days_until_weekend()}",style=f"italic dim {CLR['CLR_DIM']}")
     t.append(f"\n  {cozy_uptime} {uptime_str()}",style=f"italic dim {CLR['CLR_DIM']}"); t.append("\n")
-    return Panel(t,title=f"[{CLR['CLR_CLOCK']}]  -- Z Z B O A R D  {CURRENT_VERSION} -- {cozy_greeting} --  [/{CLR['CLR_CLOCK']}]",border_style=CLR["CLR_CLOCK"],box=box.DOUBLE,padding=(0,2))
+    return Panel(t,title=f"[{CLR['CLR_CLOCK']}]  -- Z Z B O A R D  {CURRENT_VERSION} -- {time_greeting()} --  [/{CLR['CLR_CLOCK']}]",border_style=CLR["CLR_CLOCK"],box=box.DOUBLE,padding=(0,2))
 
 def cpu_panel():
     pct=psutil.cpu_percent(interval=None); freq=psutil.cpu_freq(); CPU_HIST.append(pct); col=color_for(pct,CLR["CLR_CPU"])
@@ -875,7 +1091,7 @@ def disk_panel():
 def tasks_panel(tasks):
     t=Text(); t.append("\n")
     for task in tasks: t.append(f"  o  {task}\n",style=CLR["CLR_TASKS"])
-    t.append(f"\n  edit zzboard_config.json to change ~\n",style=f"italic dim {CLR['CLR_DIM']}")
+    t.append(f"\n  Edit zzboard_config.json to change\n",style=f"italic dim {CLR['CLR_DIM']}")
     return Panel(t,title=f"[{CLR['CLR_TASKS']}]> tasks[/{CLR['CLR_TASKS']}]",border_style=CLR["CLR_TASKS"],box=box.ROUNDED)
 
 def procs_panel():
@@ -892,15 +1108,15 @@ def speed_panel():
     t=Text(); t.append("\n")
     if speed_cache["testing"]:
         dots="."*(int(time.time()*1.5)%4)
-        t.append(f"  testing your connection{dots}\n\n",style=f"dim {CLR['CLR_SPEED']}")
-        t.append("  this takes a moment ~\n",style=f"italic dim {CLR['CLR_DIM']}")
+        t.append(f"  Testing your connection{dots}\n\n",style=f"dim {CLR['CLR_SPEED']}")
+        t.append("  This takes a moment\n",style=f"italic dim {CLR['CLR_DIM']}")
     elif speed_cache["error"]:
         t.append(f"  {speed_cache['error']}\n",style=f"dim {CLR['CLR_DIM']}")
-        t.append(f"\n  press T to try again ~\n",style=f"dim {CLR['CLR_SPEED']}")
+        t.append(f"\n  Press T to try again\n",style=f"dim {CLR['CLR_SPEED']}")
     elif speed_cache["download"] is None:
         dots="."*(int(time.time()*1.5)%4)
-        t.append(f"  running first test{dots}\n\n",style=f"dim {CLR['CLR_SPEED']}")
-        t.append("  hang tight ~\n",style=f"dim {CLR['CLR_DIM']}")
+        t.append(f"  Running first test{dots}\n\n",style=f"dim {CLR['CLR_SPEED']}")
+        t.append("  Hang tight\n",style=f"dim {CLR['CLR_DIM']}")
     else:
         dl,ul,ping=speed_cache["download"],speed_cache["upload"],speed_cache["ping"]; mx=max(dl,ul,100)
         t.append(f"  down  "); t.append_text(smooth_bar(dl/mx*100,36,CLR["CLR_SPEED"])); t.append(f"  {dl:.1f} Mbps\n",style=f"bold {CLR['CLR_SPEED']}")
@@ -908,7 +1124,7 @@ def speed_panel():
         t.append(f"\n  ping  {ping:.0f} ms",style=f"dim {CLR['CLR_SPEED']}")
         if speed_cache["last"]: t.append(f"   tested {int((time.time()-speed_cache['last'])/60)}m ago\n",style=f"italic dim {CLR['CLR_DIM']}")
         t.append(f"\n  {cozy_speed_done}\n",style=f"italic dim {CLR['CLR_DIM']}")
-        t.append(f"\n  press T to run again ~\n",style=f"dim {CLR['CLR_SPEED']}")
+        t.append(f"\n  Press T to run again\n",style=f"dim {CLR['CLR_SPEED']}")
     return Panel(t,title=f"[{CLR['CLR_SPEED']}]> speed test  [ T to run ][/{CLR['CLR_SPEED']}]",border_style=CLR["CLR_SPEED"],box=box.ROUNDED)
 
 # ── Tab bar ────────────────────────────────────────────────────────────────────
@@ -921,6 +1137,9 @@ def tab_bar():
         if num==tab: t.append(f" [{label}] ",style=f"bold {color} reverse")
         else: t.append(f"  {label}  ",style=f"dim {CLR['CLR_DIM']}")
         t.append(" ")
+    # HUD on the right
+    t.append("  ")
+    t.append_text(hud_bar())
     return Panel(t,border_style=CLR["CLR_DIM"],box=box.SIMPLE,padding=(0,1))
 
 # ── Tab layouts ────────────────────────────────────────────────────────────────
@@ -939,8 +1158,14 @@ def build_tab1(cfg):
 
 def build_tab2(cfg):
     layout=Layout()
-    layout.split_row(Layout(name="weather",ratio=1),Layout(name="moon",ratio=1))
-    layout["weather"].update(weather_panel(cfg.get("temp_unit","F"))); layout["moon"].update(moon_panel())
+    layout.split_column(
+        Layout(name="top",ratio=2),
+        Layout(name="hourly",ratio=1),
+    )
+    layout["top"].split_row(Layout(name="weather",ratio=1),Layout(name="moon",ratio=1))
+    layout["weather"].update(weather_panel(cfg.get("temp_unit","F")))
+    layout["moon"].update(moon_panel())
+    layout["hourly"].update(hourly_panel(cfg.get("temp_unit","F")))
     return layout
 
 def build_tab3(cfg):
@@ -952,15 +1177,17 @@ def build_tab3(cfg):
 def build_tab4(cfg): return speed_panel()
 
 def build_tab5(cfg):
-    if game_state["mode"]=="snake":
-        return Panel(render_snake(),title=f"[{CLR['CLR_SNAKE']}]> snake  score:{game_state['snake_score']}  best:{high_scores['snake']}  Q=back[/{CLR['CLR_SNAKE']}]",border_style=CLR["CLR_SNAKE"],box=box.ROUNDED)
+    mode=game_state["mode"]
+    if mode=="snake":
+        return Panel(render_snake(),title=f"[{CLR['CLR_SNAKE']}]> snake  score:{game_state['snake_score']}  best:{high_scores['snake']}  Q=quit[/{CLR['CLR_SNAKE']}]",border_style=CLR["CLR_SNAKE"],box=box.ROUNDED)
+    if mode=="tetris":
+        return Panel(render_tetris(),title=f"[{CLR['CLR_TETRIS']}]> tetris  score:{tet_state['score']}  level:{tet_state['level']}  Q=quit[/{CLR['CLR_TETRIS']}]",border_style=CLR["CLR_TETRIS"],box=box.ROUNDED)
     t=Text(); t.append("\n\n")
-    t.append("  press S to play snake ~\n\n",style=f"bold {CLR['CLR_SNAKE']}")
-    t.append("     WASD or arrow keys to move\n",style=f"dim {CLR['CLR_SNAKE']}")
-    t.append("     eat the [o] to grow\n",style=f"dim {CLR['CLR_SNAKE']}")
-    t.append("     avoid the walls and yourself\n\n",style=f"dim {CLR['CLR_SNAKE']}")
-    t.append(f"     your best: {high_scores['snake']}\n\n",style=f"dim {CLR['CLR_SNAKE']}")
-    t.append("  Q to go back ~\n",style=f"dim {CLR['CLR_DIM']}")
+    t.append("  Press S to play Snake\n\n",style=f"bold {CLR['CLR_SNAKE']}")
+    t.append(f"     WASD or arrow keys   Best: {high_scores['snake']}\n\n",style=f"dim {CLR['CLR_SNAKE']}")
+    t.append("  Press T to play Tetris\n\n",style=f"bold {CLR['CLR_TETRIS']}")
+    t.append(f"     A/D=move  W=rotate  S=drop   Best: {high_scores['tetris']}\n\n",style=f"dim {CLR['CLR_TETRIS']}")
+    t.append("  Q to quit a game\n",style=f"dim {CLR['CLR_DIM']}")
     return Panel(t,title=f"[{CLR['CLR_SNAKE']}]> games[/{CLR['CLR_SNAKE']}]",border_style=CLR["CLR_SNAKE"],box=box.ROUNDED)
 
 def build_tab6(cfg): return settings_panel(cfg)
@@ -974,7 +1201,7 @@ def build_layout(cfg):
 
 # ── Process keys ───────────────────────────────────────────────────────────────
 def process_keys(cfg):
-    keys = get_keys()
+    keys=get_keys()
     for ktype,kval in keys:
         tab=current_tab["tab"]; mode=game_state["mode"]
         if ktype=="char" and kval in ("1","2","3","4","5","6"):
@@ -986,11 +1213,18 @@ def process_keys(cfg):
             if not speed_cache["testing"] and not speed_cache["running"]:
                 threading.Thread(target=run_speed_test,daemon=True).start()
             continue
-        if ktype=="char" and kval=="s":
+        # Snake
+        if ktype=="char" and kval=="s" and mode!="tetris":
             if mode!="snake": current_tab["tab"]=5; game_state["mode"]="snake"; snake_init()
             elif not game_state["snake_alive"]: snake_init()
             continue
+        # Tetris
+        if ktype=="char" and kval=="t" and tab==5:
+            if mode!="tetris": current_tab["tab"]=5; game_state["mode"]="tetris"; tet_init()
+            elif not tet_state["alive"]: tet_init()
+            continue
         if ktype=="char" and kval=="q": game_state["mode"]="none"; continue
+        # Snake movement
         if mode=="snake":
             if ktype=="char":
                 if kval=="a" and game_state["snake_dir"]!=(1,0): game_state["snake_dir"]=(-1,0)
@@ -1001,6 +1235,30 @@ def process_keys(cfg):
                 elif kval=="P" and game_state["snake_dir"]!=(0,-1): game_state["snake_dir"]=(0,1)
                 elif kval=="K" and game_state["snake_dir"]!=(1,0): game_state["snake_dir"]=(-1,0)
                 elif kval=="M" and game_state["snake_dir"]!=(-1,0): game_state["snake_dir"]=(1,0)
+        # Tetris controls
+        elif mode=="tetris" and tet_state["alive"]:
+            if ktype=="char":
+                if kval=="a":
+                    if tet_valid(tet_state["piece_x"]-1,tet_state["piece_y"],tet_state["rotation"]): tet_state["piece_x"]-=1
+                elif kval=="d":
+                    if tet_valid(tet_state["piece_x"]+1,tet_state["piece_y"],tet_state["rotation"]): tet_state["piece_x"]+=1
+                elif kval=="w":
+                    nr=(tet_state["rotation"]+1)%len(TETROMINOES[tet_state["piece"]])
+                    if tet_valid(tet_state["piece_x"],tet_state["piece_y"],nr): tet_state["rotation"]=nr
+                elif kval=="s":
+                    while tet_valid(tet_state["piece_x"],tet_state["piece_y"]+1,tet_state["rotation"]): tet_state["piece_y"]+=1
+                    tet_place()
+            elif ktype=="arrow":
+                if kval=="K":
+                    if tet_valid(tet_state["piece_x"]-1,tet_state["piece_y"],tet_state["rotation"]): tet_state["piece_x"]-=1
+                elif kval=="M":
+                    if tet_valid(tet_state["piece_x"]+1,tet_state["piece_y"],tet_state["rotation"]): tet_state["piece_x"]+=1
+                elif kval=="H":
+                    nr=(tet_state["rotation"]+1)%len(TETROMINOES[tet_state["piece"]])
+                    if tet_valid(tet_state["piece_x"],tet_state["piece_y"],nr): tet_state["rotation"]=nr
+                elif kval=="P":
+                    while tet_valid(tet_state["piece_x"],tet_state["piece_y"]+1,tet_state["rotation"]): tet_state["piece_y"]+=1
+                    tet_place()
 
 # ── First launch ───────────────────────────────────────────────────────────────
 def first_launch_setup():
@@ -1010,39 +1268,39 @@ def first_launch_setup():
     t=Text(justify="center"); t.append("\n\n")
     for i,line in enumerate(logo): t.append(line+"\n",style=f"bold {colors[i%len(colors)]}")
     t.append("\n"); t.append("  made by @wtfplutolol with <3\n\n",style=f"dim {CLR['CLR_MOON']}")
-    t.append("  welcome ~ let's get you set up\n\n",style=f"bold {CLR['CLR_CLOCK']}")
+    t.append("  Welcome! Let's get you set up.\n\n",style=f"bold {CLR['CLR_CLOCK']}")
     console.print(Align.center(t))
     while True:
-        city_input=console.input(f"  [{CLR['CLR_WEATHER']}]what city are you in? ~[/{CLR['CLR_WEATHER']}] ").strip()
+        city_input=console.input(f"  [{CLR['CLR_WEATHER']}]What city are you in?[/{CLR['CLR_WEATHER']}] ").strip()
         if not city_input: city_input="New York"
-        console.print(f"  [{CLR['CLR_DIM']}]looking that up ~[/{CLR['CLR_DIM']}]")
+        console.print(f"  [{CLR['CLR_DIM']}]Looking that up...[/{CLR['CLR_DIM']}]")
         results=search_cities(city_input)
-        if not results: console.print(f"  [bold #FF4444]hmm, couldn't find that ~ try again[/bold #FF4444]"); continue
+        if not results: console.print(f"  [bold #FF4444]Could not find '{city_input}'. Please try again.[/bold #FF4444]"); continue
         if len(results)==1:
             chosen=results[0]
         else:
-            console.print(f"\n  [{CLR['CLR_CLOCK']}]found a few options ~[/{CLR['CLR_CLOCK']}]\n")
+            console.print(f"\n  [{CLR['CLR_CLOCK']}]Found a few options:[/{CLR['CLR_CLOCK']}]\n")
             for i,r in enumerate(results):
                 name=r.get("name",""); state=r.get("admin1",""); country=r.get("country","")
                 pop=r.get("population",0); pop_str=f"  pop {pop:,}" if pop else ""
                 console.print(f"  [{CLR['CLR_WEATHER']}]{i+1}.[/{CLR['CLR_WEATHER']}] {name}, {state}, {country}{pop_str}")
             while True:
-                pick=console.input(f"\n  [{CLR['CLR_CLOCK']}]pick a number (1-{len(results)}) ~[/{CLR['CLR_CLOCK']}] ").strip()
+                pick=console.input(f"\n  [{CLR['CLR_CLOCK']}]Pick a number (1-{len(results)}):[/{CLR['CLR_CLOCK']}] ").strip()
                 if pick.isdigit() and 1<=int(pick)<=len(results): chosen=results[int(pick)-1]; break
-                console.print(f"  [bold #FF4444]hmm, try again ~[/bold #FF4444]")
+                console.print(f"  [bold #FF4444]Invalid choice. Try again.[/bold #FF4444]")
         name=chosen.get("name",city_input); state=chosen.get("admin1",""); country=chosen.get("country_code","")
         lat=chosen.get("latitude",0); lon=chosen.get("longitude",0)
-        console.print(f"  [bold {CLR['CLR_CLOCK']}]perfect ~ {name}, {state}, {country}[/bold {CLR['CLR_CLOCK']}]"); break
+        console.print(f"  [bold {CLR['CLR_CLOCK']}]Selected: {name}, {state}, {country}[/bold {CLR['CLR_CLOCK']}]"); break
     cfg=dict(DEFAULT_CONFIG)
     cfg.update({"city":name,"city_state":state,"city_country":country,"city_lat":lat,"city_lon":lon})
     save_config(cfg)
-    console.print(f"\n  [bold {CLR['CLR_CLOCK']}]all set ~ starting zzboard[/bold {CLR['CLR_CLOCK']}]\n")
+    console.print(f"\n  [bold {CLR['CLR_CLOCK']}]All set! Starting ZZBoard...[/bold {CLR['CLR_CLOCK']}]\n")
     time.sleep(1.5)
     return cfg
 
 # ── Entry ──────────────────────────────────────────────────────────────────────
 def main():
-    parser=argparse.ArgumentParser(description="ZZBoard Public v1.6")
+    parser=argparse.ArgumentParser(description="ZZBoard Public v1.7")
     parser.add_argument("--no-splash",action="store_true")
     args=parser.parse_args()
 
@@ -1057,6 +1315,7 @@ def main():
     threading.Thread(target=fetch_speed,daemon=True).start()
     threading.Thread(target=game_loop,daemon=True).start()
     threading.Thread(target=key_reader,daemon=True).start()
+    threading.Thread(target=fetch_hud,daemon=True).start()
 
     cid=cfg.get("spotify_client_id",""); cs=cfg.get("spotify_client_secret","")
     if cid and cs: threading.Thread(target=lambda:fetch_spotify(cid,cs),daemon=True).start()
@@ -1068,9 +1327,7 @@ def main():
         show_update_screen()
         show_splash()
     else:
-        # Coming from an update restart — mark as already checked so we don't loop
-        update_status["checked"] = True
-        update_status["updated"] = False
+        update_status["checked"]=True; update_status["updated"]=False
 
     try:
         with Live(build_layout(_cfg_ref),console=console,refresh_per_second=3,screen=True) as live:
@@ -1081,9 +1338,9 @@ def main():
                     show_changelog()
                     if IS_EXE: apply_exe_update_and_restart()
                     else: do_restart()
-                # Screensaver check
-                if time.time()-last_key_time["t"] > SCREENSAVER_IDLE_SECS:
-                    screensaver_on["v"] = True
+                if time.time()-last_key_time["t"]>SCREENSAVER_IDLE_SECS:
+                    screensaver_on["v"]=True
+                update_fps()
                 if screensaver_on["v"]:
                     live.update(screensaver_screen())
                 else:
@@ -1093,7 +1350,7 @@ def main():
     except KeyboardInterrupt:
         pass
 
-    console.print(f"\n[bold {CLR['CLR_CLOCK']}]  zzboard[/bold {CLR['CLR_CLOCK']}] [dim {CLR['CLR_DIM']}]going to sleep ~ sweet dreams -- made by @wtfplutolol with <3[/dim {CLR['CLR_DIM']}]\n")
+    console.print(f"\n[bold {CLR['CLR_CLOCK']}]  zzboard[/bold {CLR['CLR_CLOCK']}] [dim {CLR['CLR_DIM']}]going to sleep. sweet dreams. — made by @wtfplutolol with <3[/dim {CLR['CLR_DIM']}]\n")
 
 if __name__=="__main__":
     main()
