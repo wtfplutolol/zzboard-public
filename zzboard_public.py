@@ -63,22 +63,26 @@ THIS_FILE = sys.executable if IS_EXE else os.path.abspath(__file__)
 THIS_DIR  = os.path.dirname(THIS_FILE)
 
 # ── Config ─────────────────────────────────────────────────────────────────────
-CONFIG_FILE    = os.path.join(THIS_DIR, "zzboard_config.json")
-GITHUB_RAW_URL = "https://raw.githubusercontent.com/wtfplutolol/zzboard-public/main/zzboard_public.py"
+CONFIG_FILE       = os.path.join(THIS_DIR, "zzboard_config.json")
+GITHUB_USER       = "wtfplutolol"
+GITHUB_REPO       = "zzboard-public"
+GITHUB_RAW_URL    = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/main/zzboard_public.py"
+GITHUB_LATEST_URL = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/releases/latest"
+CURRENT_VERSION   = "v1.2"
 
 # ── Changelog ─────────────────────────────────────────────────────────────────
 CHANGELOG = [
     ("v1.2", [
         "Pink is now the default theme",
-        "City reset now shows a 5 second countdown then auto-restarts",
-        "City not found now shows a clear error instead of loading forever",
+        "City reset now shows 5 second countdown then auto-restarts",
+        "City not found shows a clear error instead of loading forever",
         "Changelog screen added after updates",
-        "Enter key to dismiss changelog and enter dashboard",
+        "Exe auto-updater via GitHub Releases",
     ]),
     ("v1.1", [
         "Settings tab added (tab 6)",
         "Theme switcher: green, blue, pink, amber, red",
-        "Temperature unit toggle (F/C)",
+        "Temperature unit toggle F/C",
         "Speed test interval setting",
         "Force update check from settings",
         "City reset from settings",
@@ -145,7 +149,7 @@ settings_msg    = {"text": "", "color": "#FF79C6", "time": 0}
 
 weather_cache = {"data": None, "error": None, "last": 0}
 speed_cache   = {"download": None, "upload": None, "ping": None, "testing": False, "last": 0, "error": None}
-update_status = {"checked": False, "updated": False, "error": None, "log": []}
+update_status = {"checked": False, "updated": False, "error": None, "log": [], "new_version": None}
 weather_meta  = {"url": None, "city": "Unknown", "country": "", "not_found": False}
 _cfg_ref      = {}
 
@@ -186,7 +190,6 @@ def do_restart():
     sys.exit(0)
 
 def do_restart_fresh():
-    """Restart without --no-splash so setup runs again."""
     args = [THIS_FILE] if IS_EXE else [sys.executable, THIS_FILE]
     try:
         subprocess.Popen(args, creationflags=subprocess.CREATE_NEW_CONSOLE if IS_EXE else 0)
@@ -195,64 +198,227 @@ def do_restart_fresh():
     time.sleep(1.0)
     sys.exit(0)
 
-# ── City reset with countdown ──────────────────────────────────────────────────
+# ── City reset countdown ───────────────────────────────────────────────────────
 
 def city_reset_countdown():
-    """Show a 5 second countdown then restart for city setup."""
     for i in range(5, 0, -1):
         t = Text(justify="center")
         t.append("\n\n\n")
         t.append("  City has been reset!\n\n", style=f"bold {CLR['CLR_CLOCK']}")
         t.append(f"  Restarting in {i}...\n\n", style=f"bold {CLR['CLR_WEATHER']}")
         t.append("  You will be asked for your new city\n", style=f"dim {CLR['CLR_DIM']}")
-        with Live(Align.center(t, vertical="middle"), console=console, screen=True, refresh_per_second=10):
+        with Live(Align.center(t, vertical="middle"), console=console, screen=True, refresh_per_second=2):
             time.sleep(1.0)
     do_restart_fresh()
 
 # ── Changelog screen ───────────────────────────────────────────────────────────
 
+def build_changelog_text():
+    t = Text(justify="center")
+    t.append("\n")
+    colors = [CLR["CLR_CLOCK"], CLR["CLR_WEATHER"], CLR["CLR_MOON"], CLR["CLR_TASKS"], CLR["CLR_CPU"]]
+    for i, line in enumerate(ZZBOARD_LOGO):
+        t.append(line + "\n", style=f"bold {colors[i % len(colors)]}")
+    t.append("\n")
+    t.append("  WHATS NEW\n\n", style=f"bold {CLR['CLR_CLOCK']}")
+    for version, changes in CHANGELOG:
+        t.append(f"  {version}\n", style=f"bold {CLR['CLR_WEATHER']}")
+        for change in changes:
+            t.append(f"    + {change}\n", style=f"dim {CLR['CLR_MOON']}")
+        t.append("\n")
+    t.append("  ============================================\n", style=f"dim {CLR['CLR_DIM']}")
+    t.append("  >>  Press ENTER to enter the dashboard  <<  \n", style=f"bold {CLR['CLR_CLOCK']} reverse")
+    t.append("  ============================================\n", style=f"dim {CLR['CLR_DIM']}")
+    return t
+
 def show_changelog():
-    """Show changelog after an update. User must press Enter to continue."""
-    while True:
-        t = Text(justify="center")
-        t.append("\n")
-        colors = [CLR["CLR_CLOCK"], CLR["CLR_WEATHER"], CLR["CLR_MOON"], CLR["CLR_TASKS"], CLR["CLR_CPU"]]
-        for i, line in enumerate(ZZBOARD_LOGO):
-            t.append(line + "\n", style=f"bold {colors[i % len(colors)]}")
-        t.append("\n")
-        t.append("  WHATS NEW\n\n", style=f"bold {CLR['CLR_CLOCK']}")
+    """Show changelog — waits for Enter key before continuing."""
+    console.clear()
 
-        for version, changes in CHANGELOG:
-            t.append(f"  {version}\n", style=f"bold {CLR['CLR_WEATHER']}")
-            for change in changes:
-                t.append(f"    + {change}\n", style=f"dim {CLR['CLR_MOON']}")
-            t.append("\n")
+    # Flush any leftover keypresses
+    try:
+        import msvcrt
+        while msvcrt.kbhit():
+            msvcrt.getwch()
+    except Exception:
+        pass
 
-        t.append("\n")
-        t.append("  ----------------------------------------\n", style=f"dim {CLR['CLR_DIM']}")
-        t.append("  Press ENTER to go to the dashboard  >>  \n", style=f"bold {CLR['CLR_CLOCK']} reverse")
-        t.append("  ----------------------------------------\n", style=f"dim {CLR['CLR_DIM']}")
+    # Show static changelog and wait for Enter
+    console.print(Align.center(build_changelog_text(), vertical="middle"))
+    console.print()
 
-        with Live(Align.center(t, vertical="middle"), console=console, screen=True, refresh_per_second=2):
+    # Wait for Enter
+    try:
+        import msvcrt
+        while True:
+            ch = msvcrt.getwch()
+            if ch == "\r":
+                break
+            time.sleep(0.05)
+    except Exception:
+        time.sleep(3.0)
+
+# ── Auto-updater ───────────────────────────────────────────────────────────────
+
+def check_for_update():
+    update_status["log"].append("connecting to github...")
+    try:
+        if IS_EXE:
+            # For exe: check GitHub Releases for a newer version
+            r = requests.get(GITHUB_LATEST_URL, verify=False, timeout=8)
+            r.raise_for_status()
+            data        = r.json()
+            latest_tag  = data.get("tag_name", "")
+            update_status["new_version"] = latest_tag
+            update_status["log"].append(f"latest: {latest_tag}  current: {CURRENT_VERSION}")
+
+            if latest_tag and latest_tag != CURRENT_VERSION:
+                update_status["log"].append("update found! downloading exe...")
+                # Find exe asset
+                assets   = data.get("assets", [])
+                exe_url  = None
+                for asset in assets:
+                    if asset["name"].endswith(".exe"):
+                        exe_url = asset["browser_download_url"]
+                        break
+
+                if exe_url:
+                    # Download new exe to temp location
+                    tmp_path = THIS_FILE + ".new"
+                    r2 = requests.get(exe_url, verify=False, timeout=60, stream=True)
+                    r2.raise_for_status()
+                    with open(tmp_path, "wb") as f:
+                        for chunk in r2.iter_content(chunk_size=8192):
+                            f.write(chunk)
+
+                    # Write a small batch script to replace exe after exit
+                    bat_path = os.path.join(THIS_DIR, "zzboard_update.bat")
+                    with open(bat_path, "w") as f:
+                        f.write(f'@echo off\n')
+                        f.write(f'timeout /t 2 /nobreak >nul\n')
+                        f.write(f'move /y "{tmp_path}" "{THIS_FILE}"\n')
+                        f.write(f'start "" "{THIS_FILE}" --no-splash\n')
+                        f.write(f'del "%~f0"\n')
+
+                    update_status["log"].append("update ready! applying on restart...")
+                    update_status["updated"] = True
+                    update_status["bat_path"] = bat_path
+                else:
+                    update_status["log"].append("no exe found in release.")
+            else:
+                update_status["log"].append("already up to date.")
+        else:
+            # For .py: check raw file hash
+            r = requests.get(GITHUB_RAW_URL, verify=False, timeout=8)
+            r.raise_for_status()
+            remote_code = r.text
+            update_status["log"].append("comparing versions...")
+            if file_hash(THIS_FILE) != hashlib.md5(remote_code.encode()).hexdigest():
+                update_status["log"].append("update found! downloading...")
+                time.sleep(0.4)
+                with open(THIS_FILE, "w", encoding="utf-8") as f:
+                    f.write(remote_code)
+                update_status["log"].append("update applied!")
+                update_status["updated"] = True
+            else:
+                update_status["log"].append("already up to date.")
+    except Exception as e:
+        update_status["log"].append(f"update check failed.")
+    update_status["checked"] = True
+
+def apply_exe_update_and_restart():
+    """Launch the batch script that replaces the exe and restarts."""
+    bat = update_status.get("bat_path")
+    if bat and os.path.exists(bat):
+        subprocess.Popen(["cmd", "/c", bat], creationflags=subprocess.CREATE_NEW_CONSOLE)
+        time.sleep(0.5)
+        sys.exit(0)
+    else:
+        do_restart()
+
+# ── Splash ─────────────────────────────────────────────────────────────────────
+
+ZZBOARD_LOGO = [
+    "  ________ ______  ____  ____  ____  ____  ____  ",
+    " |___  /  /  /  / / __ )/ __ \\/ __ \\/ __ \\/ __ \\ ",
+    "    / /  /  /  / / __ )/ / / / / / / /_/ / / / / ",
+    "   / /__/  /__/ / /_/ / /_/ / /_/ / _, _/ /_/ /  ",
+    "  /____/__/__/ /_____/\\____/\\____/_/ |_/_____/    ",
+]
+
+CAT_FRAMES = [
+    ["         z z z          ","        z                ","   /\\_____/\\             ","  ( o  .  o )~~~~~~~~~~  ","   >   ^   <  zzzboard   ","  (_____)________________"],
+    ["          Z z z         ","         z               ","   /\\_____/\\             ","  ( -  .  - )~~~~~~~~~~  ","   >   ^   <  zzzboard   ","  (_____)________________"],
+    ["           Z Z z        ","          z              ","   /\\_____/\\             ","  ( o  .  - )~~~~~~~~~~  ","   >   ^   <  zzzboard   ","  (_____)________________"],
+    ["         z Z z          ","        z                ","   /\\_____/\\             ","  ( ~  .  ~ )~~~~~~~~~~  ","   >   ^   <  zzzboard   ","  (_____)________________"],
+]
+
+LOADING_STEPS = ["booting up...","checking for updates...","fetching weather...","calculating moon phase...","warming up monitors...","all systems go  zzz..."]
+
+def cat_screen(extra_line="", progress=None):
+    t=Text(justify="center"); t.append("\n")
+    colors=[CLR["CLR_CLOCK"],CLR["CLR_WEATHER"],CLR["CLR_MOON"],CLR["CLR_TASKS"],CLR["CLR_CPU"]]
+    for i,line in enumerate(ZZBOARD_LOGO): t.append(line+"\n",style=f"bold {colors[i%len(colors)]}")
+    t.append(f"{'  PUBLIC EDITION  -- made by @wtfplutolol with <3':^50}\n\n",style=f"dim {CLR['CLR_MOON']}")
+    for line in CAT_FRAMES[int(time.time()*3)%len(CAT_FRAMES)]: t.append(line+"\n",style=CLR["CLR_CLOCK"])
+    t.append("\n"); t.append(f"  {extra_line}\n",style=f"dim {CLR['CLR_WEATHER']}")
+    if progress is not None:
+        fill=int(progress)
+        t.append("\n  [",style=f"dim {CLR['CLR_DIM']}"); t.append("#"*fill,style=CLR["CLR_CLOCK"])
+        t.append("-"*(36-fill),style=f"dim {CLR['CLR_DIM']}"); t.append("]\n",style=f"dim {CLR['CLR_DIM']}")
+    return Align.center(t,vertical="middle")
+
+def show_update_screen():
+    done=threading.Event()
+    threading.Thread(target=lambda:[check_for_update(),done.set()],daemon=True).start()
+    while not done.is_set():
+        log=update_status["log"][-1] if update_status["log"] else "connecting..."
+        with Live(cat_screen(f"> {log}"),console=console,screen=True,refresh_per_second=4):
+            time.sleep(0.25)
+
+    if update_status["updated"]:
+        with Live(cat_screen("> update ready! showing changelog..."),console=console,screen=True,refresh_per_second=4):
+            time.sleep(1.5)
+        show_changelog()
+        if IS_EXE:
+            apply_exe_update_and_restart()
+        else:
+            do_restart()
+    else:
+        msg="> up to date!" if not update_status["error"] else "> continuing offline..."
+        with Live(cat_screen(msg),console=console,screen=True,refresh_per_second=4):
+            time.sleep(1.5)
+
+def show_splash():
+    for tick in range(36):
+        step=LOADING_STEPS[min(tick//max(1,36//len(LOADING_STEPS)),len(LOADING_STEPS)-1)]
+        with Live(cat_screen(f"> {step}",tick),console=console,screen=True,refresh_per_second=4):
             time.sleep(0.1)
-
-        # Check for Enter key
-        try:
-            import msvcrt
-            if msvcrt.kbhit():
-                ch = msvcrt.getwch()
-                if ch == "\r":
-                    break
-        except Exception:
-            break
-
-        time.sleep(0.1)
+    time.sleep(0.3)
 
 # ── First launch setup ─────────────────────────────────────────────────────────
 
+def get_weather_url(city):
+    try:
+        geo = requests.get(
+            f"https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1",
+            verify=False, timeout=5
+        ).json()
+        results = geo.get("results")
+        if not results:
+            return None, city, ""
+        r = results[0]
+        lat, lon = r["latitude"], r["longitude"]
+        url = (f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
+               f"&current=temperature_2m,weathercode,windspeed_10m,relative_humidity_2m"
+               f"&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=auto")
+        return url, r.get("name", city), r.get("country_code", "")
+    except Exception:
+        return None, city, ""
+
 def first_launch_setup():
     console.clear()
-    colors = [CLR["CLR_CLOCK"], CLR["CLR_WEATHER"], CLR["CLR_MOON"], CLR["CLR_TASKS"], CLR["CLR_CPU"]]
+    colors = [CLR["CLR_CLOCK"],CLR["CLR_WEATHER"],CLR["CLR_MOON"],CLR["CLR_TASKS"],CLR["CLR_CPU"]]
     logo   = [
         "  ________ ______  ____  ____  ____  ____  ____  ",
         " |___  /  /  /  / / __ )/ __ \\/ __ \\/ __ \\/ __ \\ ",
@@ -274,15 +440,13 @@ def first_launch_setup():
         city = console.input(f"  [{CLR['CLR_WEATHER']}]Your city for weather (e.g. London, Tokyo, New York):[/{CLR['CLR_WEATHER']}] ").strip()
         if not city:
             city = "New York"
-
-        # Validate city exists
         console.print(f"  [{CLR['CLR_DIM']}]Checking city...[/{CLR['CLR_DIM']}]")
         url, name, country = get_weather_url(city)
         if url:
             console.print(f"  [bold {CLR['CLR_CLOCK']}]Found: {name}, {country}[/bold {CLR['CLR_CLOCK']}]")
             break
         else:
-            console.print(f"  [bold #FF4444]City '{city}' not found! Please try again.[/bold #FF4444]")
+            console.print(f"  [bold #FF4444]City not found! Please try again.[/bold #FF4444]")
 
     cfg = dict(DEFAULT_CONFIG)
     cfg["city"] = name
@@ -338,29 +502,11 @@ WEATHER_CODES = {
     96:("Hail storm","!"),99:("Hail storm","!"),
 }
 
-def get_weather_url(city):
-    try:
-        geo = requests.get(
-            f"https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1",
-            verify=False, timeout=5
-        ).json()
-        results = geo.get("results")
-        if not results:
-            return None, city, ""
-        r   = results[0]
-        lat, lon = r["latitude"], r["longitude"]
-        url = (f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
-               f"&current=temperature_2m,weathercode,windspeed_10m,relative_humidity_2m"
-               f"&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=auto")
-        return url, r.get("name", city), r.get("country_code", "")
-    except Exception:
-        return None, city, ""
-
 def fetch_weather(city):
     url, name, country = get_weather_url(city)
     if not url:
         weather_meta.update({"url": None, "city": city, "country": "", "not_found": True})
-        weather_cache["error"] = f"City '{city}' not found. Go to Settings > Reset City."
+        weather_cache["error"] = f"City not found. Go to Settings > Reset City."
         return
     weather_meta.update({"url": url, "city": name, "country": country, "not_found": False})
     while True:
@@ -379,13 +525,11 @@ def weather_panel(temp_unit="F"):
     t = Text()
     t.append("\n")
     d = weather_cache["data"]
-
     if weather_meta.get("not_found"):
-        t.append(f"  City not found!\n\n",               style=f"bold #FF4444")
-        t.append(f"  '{weather_meta['city']}' could not be located.\n\n", style=f"dim {CLR['CLR_DIM']}")
-        t.append(f"  Go to tab 6 SETTINGS\n",            style=f"dim {CLR['CLR_WEATHER']}")
-        t.append(f"  and select Reset City\n",           style=f"dim {CLR['CLR_WEATHER']}")
-        t.append(f"  to enter a new city.\n",            style=f"dim {CLR['CLR_WEATHER']}")
+        t.append("  City not found!\n\n",           style="bold #FF4444")
+        t.append(f"  '{weather_meta['city']}'\n\n", style=f"dim {CLR['CLR_DIM']}")
+        t.append("  Go to tab 6 SETTINGS\n",        style=f"dim {CLR['CLR_WEATHER']}")
+        t.append("  and select Reset City\n",       style=f"dim {CLR['CLR_WEATHER']}")
     elif not d:
         t.append(f"  {weather_cache.get('error') or 'fetching...'}\n", style=f"dim {CLR['CLR_DIM']}")
     else:
@@ -407,24 +551,81 @@ def weather_panel(temp_unit="F"):
             t.append("  error reading data\n", style=f"dim {CLR['CLR_DIM']}")
     return Panel(t, title=f"[{CLR['CLR_WEATHER']}]> WEATHER[/{CLR['CLR_WEATHER']}]", border_style=CLR["CLR_WEATHER"], box=box.ROUNDED)
 
-# ── ASCII Art ──────────────────────────────────────────────────────────────────
+# ── Settings ───────────────────────────────────────────────────────────────────
 
-ZZBOARD_LOGO = [
-    "  ________ ______  ____  ____  ____  ____  ____  ",
-    " |___  /  /  /  / / __ )/ __ \\/ __ \\/ __ \\/ __ \\ ",
-    "    / /  /  /  / / __ )/ / / / / / / /_/ / / / / ",
-    "   / /__/  /__/ / /_/ / /_/ / /_/ / _, _/ /_/ /  ",
-    "  /____/__/__/ /_____/\\____/\\____/_/ |_/_____/    ",
+SETTINGS_ITEMS = [
+    ("Theme",          "theme",          ["green","blue","pink","amber","red"]),
+    ("Temperature",    "temp_unit",      ["F","C"]),
+    ("Speed interval", "speed_interval", [30, 60, 120, 0]),
+    ("Reset city",     "_reset_city",    None),
+    ("Force update",   "_force_update",  None),
 ]
 
-CAT_FRAMES = [
-    ["         z z z          ","        z                ","   /\\_____/\\             ","  ( o  .  o )~~~~~~~~~~  ","   >   ^   <  zzzboard   ","  (_____)________________"],
-    ["          Z z z         ","         z               ","   /\\_____/\\             ","  ( -  .  - )~~~~~~~~~~  ","   >   ^   <  zzzboard   ","  (_____)________________"],
-    ["           Z Z z        ","          z              ","   /\\_____/\\             ","  ( o  .  - )~~~~~~~~~~  ","   >   ^   <  zzzboard   ","  (_____)________________"],
-    ["         z Z z          ","        z                ","   /\\_____/\\             ","  ( ~  .  ~ )~~~~~~~~~~  ","   >   ^   <  zzzboard   ","  (_____)________________"],
-]
+def settings_label(key, value):
+    if key == "speed_interval":
+        return "never" if value == 0 else f"{value} min"
+    return str(value)
 
-LOADING_STEPS = ["booting up...","checking for updates...","fetching weather...","calculating moon phase...","warming up monitors...","all systems go  zzz..."]
+def settings_panel(cfg):
+    t = Text()
+    t.append("\n")
+    t.append("  Arrow keys navigate   Left/Right or Enter to change\n\n", style=f"dim {CLR['CLR_DIM']}")
+    pos = settings_cursor["pos"]
+    for i, (label, key, options) in enumerate(SETTINGS_ITEMS):
+        selected = i == pos
+        prefix   = "  [>] " if selected else "  [ ] "
+        style    = f"bold {CLR['CLR_CLOCK']}" if selected else f"dim {CLR['CLR_DIM']}"
+        if options is None:
+            t.append(prefix, style=style); t.append(f"{label}\n", style=style)
+        else:
+            val = cfg.get(key, options[0])
+            t.append(prefix, style=style); t.append(f"{label:<20}", style=style)
+            for opt in options:
+                opt_str = settings_label(key, opt)
+                if opt == val: t.append(f" [{opt_str}] ", style=f"bold {CLR['CLR_CLOCK']} reverse")
+                else: t.append(f"  {opt_str}  ", style=f"dim {CLR['CLR_DIM']}")
+            t.append("\n")
+    if settings_msg["text"] and time.time() - settings_msg["time"] < 4:
+        t.append(f"\n  {settings_msg['text']}\n", style=f"bold {settings_msg['color']}")
+    t.append(f"\n  Theme preview:\n", style=f"dim {CLR['CLR_DIM']}")
+    for name, colors in THEMES.items():
+        marker = " [*]" if name == cfg.get("theme","pink") else "  o "
+        t.append(f"  {marker} {name}\n", style=f"bold {colors['CLR_CLOCK']}")
+    return Panel(t, title=f"[{CLR['CLR_CLOCK']}]> SETTINGS[/{CLR['CLR_CLOCK']}]", border_style=CLR["CLR_CLOCK"], box=box.ROUNDED)
+
+def handle_settings_input(ch, cfg):
+    import msvcrt
+    pos   = settings_cursor["pos"]
+    label, key, options = SETTINGS_ITEMS[pos]
+    if ch in ("\x00", "\xe0"):
+        arrow = msvcrt.getwch()
+        if arrow == "H": settings_cursor["pos"] = (pos - 1) % len(SETTINGS_ITEMS)
+        elif arrow == "P": settings_cursor["pos"] = (pos + 1) % len(SETTINGS_ITEMS)
+        elif arrow in ("K","M") and options:
+            val     = cfg.get(key, options[0])
+            idx     = options.index(val) if val in options else 0
+            delta   = -1 if arrow == "K" else 1
+            new_val = options[(idx + delta) % len(options)]
+            cfg[key] = new_val; save_config(cfg)
+            if key == "theme": apply_theme(new_val)
+            settings_msg.update({"text": "Saved!", "color": CLR["CLR_CLOCK"], "time": time.time()})
+        return
+    if ch == "\r":
+        if key == "_reset_city":
+            cfg["city"] = ""; save_config(cfg)
+            settings_msg.update({"text": "Restarting in 5 seconds...", "color": "#FF4444", "time": time.time()})
+            threading.Thread(target=city_reset_countdown, daemon=False).start()
+        elif key == "_force_update":
+            update_status.update({"checked": False, "updated": False, "error": None, "log": []})
+            threading.Thread(target=check_for_update, daemon=True).start()
+            settings_msg.update({"text": "Checking for updates...", "color": CLR["CLR_SPEED"], "time": time.time()})
+        elif options:
+            val     = cfg.get(key, options[0])
+            idx     = options.index(val) if val in options else 0
+            new_val = options[(idx + 1) % len(options)]
+            cfg[key] = new_val; save_config(cfg)
+            if key == "theme": apply_theme(new_val)
+            settings_msg.update({"text": "Saved!", "color": CLR["CLR_CLOCK"], "time": time.time()})
 
 # ── Game State ─────────────────────────────────────────────────────────────────
 GAME_W, GAME_H = 50, 22
@@ -503,98 +704,6 @@ def render_flappy():
     else: t.append(f"\n  Score:{game_state['flappy_score']}   SPACE to flap   Q to quit\n",style=f"dim {CLR['CLR_FLAPPY']}")
     return t
 
-# ── Settings ───────────────────────────────────────────────────────────────────
-
-SETTINGS_ITEMS = [
-    ("Theme",          "theme",          ["green","blue","pink","amber","red"]),
-    ("Temperature",    "temp_unit",      ["F","C"]),
-    ("Speed interval", "speed_interval", [30, 60, 120, 0]),
-    ("Reset city",     "_reset_city",    None),
-    ("Force update",   "_force_update",  None),
-]
-
-def settings_label(key, value):
-    if key == "speed_interval":
-        return "never" if value == 0 else f"{value} min"
-    return str(value)
-
-def settings_panel(cfg):
-    t = Text()
-    t.append("\n")
-    t.append("  Arrow keys navigate   Left/Right or Enter to change\n\n", style=f"dim {CLR['CLR_DIM']}")
-    pos = settings_cursor["pos"]
-
-    for i, (label, key, options) in enumerate(SETTINGS_ITEMS):
-        selected = i == pos
-        prefix   = "  [>] " if selected else "  [ ] "
-        style    = f"bold {CLR['CLR_CLOCK']}" if selected else f"dim {CLR['CLR_DIM']}"
-
-        if options is None:
-            t.append(prefix, style=style)
-            t.append(f"{label}\n", style=style)
-        else:
-            val = cfg.get(key, options[0])
-            t.append(prefix, style=style)
-            t.append(f"{label:<20}", style=style)
-            for opt in options:
-                opt_str = settings_label(key, opt)
-                if opt == val:
-                    t.append(f" [{opt_str}] ", style=f"bold {CLR['CLR_CLOCK']} reverse")
-                else:
-                    t.append(f"  {opt_str}  ", style=f"dim {CLR['CLR_DIM']}")
-            t.append("\n")
-
-    if settings_msg["text"] and time.time() - settings_msg["time"] < 4:
-        t.append(f"\n  {settings_msg['text']}\n", style=f"bold {settings_msg['color']}")
-
-    t.append(f"\n  Theme preview:\n", style=f"dim {CLR['CLR_DIM']}")
-    for name, colors in THEMES.items():
-        marker = " [*]" if name == cfg.get("theme","pink") else "  o "
-        t.append(f"  {marker} {name}\n", style=f"bold {colors['CLR_CLOCK']}")
-
-    return Panel(t, title=f"[{CLR['CLR_CLOCK']}]> SETTINGS[/{CLR['CLR_CLOCK']}]", border_style=CLR["CLR_CLOCK"], box=box.ROUNDED)
-
-def handle_settings_input(ch, cfg):
-    import msvcrt
-    pos   = settings_cursor["pos"]
-    label, key, options = SETTINGS_ITEMS[pos]
-
-    if ch in ("\x00", "\xe0"):
-        arrow = msvcrt.getwch()
-        if arrow == "H":
-            settings_cursor["pos"] = (pos - 1) % len(SETTINGS_ITEMS)
-        elif arrow == "P":
-            settings_cursor["pos"] = (pos + 1) % len(SETTINGS_ITEMS)
-        elif arrow in ("K","M") and options:
-            val     = cfg.get(key, options[0])
-            idx     = options.index(val) if val in options else 0
-            delta   = -1 if arrow == "K" else 1
-            new_val = options[(idx + delta) % len(options)]
-            cfg[key] = new_val
-            save_config(cfg)
-            if key == "theme": apply_theme(new_val)
-            settings_msg.update({"text": "Saved!", "color": CLR["CLR_CLOCK"], "time": time.time()})
-        return
-
-    if ch == "\r":
-        if key == "_reset_city":
-            cfg["city"] = ""
-            save_config(cfg)
-            settings_msg.update({"text": "Restarting in 5 seconds...", "color": "#FF4444", "time": time.time()})
-            threading.Thread(target=city_reset_countdown, daemon=False).start()
-        elif key == "_force_update":
-            update_status.update({"checked": False, "updated": False, "error": None, "log": []})
-            threading.Thread(target=check_for_update, daemon=True).start()
-            settings_msg.update({"text": "Checking for updates...", "color": CLR["CLR_SPEED"], "time": time.time()})
-        elif options:
-            val     = cfg.get(key, options[0])
-            idx     = options.index(val) if val in options else 0
-            new_val = options[(idx + 1) % len(options)]
-            cfg[key] = new_val
-            save_config(cfg)
-            if key == "theme": apply_theme(new_val)
-            settings_msg.update({"text": "Saved!", "color": CLR["CLR_CLOCK"], "time": time.time()})
-
 # ── Input handler ──────────────────────────────────────────────────────────────
 
 def input_loop():
@@ -602,27 +711,19 @@ def input_loop():
         import msvcrt
         while True:
             if msvcrt.kbhit():
-                ch   = msvcrt.getwch()
-                key  = ch.lower()
-                mode = game_state["mode"]
-
+                ch=msvcrt.getwch(); key=ch.lower(); mode=game_state["mode"]
                 if key in ("1","2","3","4","5","6"):
-                    current_tab["tab"] = int(key)
-                    if key != "5": game_state["mode"] = "none"
-
-                elif current_tab["tab"] == 6:
-                    handle_settings_input(ch, _cfg_ref)
-
-                elif key == "s":
-                    if mode != "snake": current_tab["tab"]=5; game_state["mode"]="snake"; snake_init()
+                    current_tab["tab"]=int(key)
+                    if key!="5": game_state["mode"]="none"
+                elif current_tab["tab"]==6: handle_settings_input(ch,_cfg_ref)
+                elif key=="s":
+                    if mode!="snake": current_tab["tab"]=5; game_state["mode"]="snake"; snake_init()
                     elif not game_state["snake_alive"]: snake_init()
-                elif key == "f":
-                    if mode != "flappy": current_tab["tab"]=5; game_state["mode"]="flappy"; flappy_init()
+                elif key=="f":
+                    if mode!="flappy": current_tab["tab"]=5; game_state["mode"]="flappy"; flappy_init()
                     elif not game_state["flappy_alive"]: flappy_init()
-                elif key == "q":
-                    game_state["mode"] = "none"
-
-                elif mode == "snake":
+                elif key=="q": game_state["mode"]="none"
+                elif mode=="snake":
                     if key=="a" and game_state["snake_dir"]!=(1,0): game_state["snake_dir"]=(-1,0)
                     elif key=="d" and game_state["snake_dir"]!=(-1,0): game_state["snake_dir"]=(1,0)
                     elif key=="w" and game_state["snake_dir"]!=(0,1): game_state["snake_dir"]=(0,-1)
@@ -632,10 +733,8 @@ def input_loop():
                         elif a=="P" and game_state["snake_dir"]!=(0,-1): game_state["snake_dir"]=(0,1)
                         elif a=="K" and game_state["snake_dir"]!=(1,0): game_state["snake_dir"]=(-1,0)
                         elif a=="M" and game_state["snake_dir"]!=(-1,0): game_state["snake_dir"]=(1,0)
-
-                elif mode == "flappy":
+                elif mode=="flappy":
                     if key in (" ","w"): game_state["flappy_vel"]=-2.8
-
             time.sleep(0.03)
     except Exception: pass
 
@@ -649,7 +748,7 @@ def game_loop():
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
-def color_for(pct, base):
+def color_for(pct,base):
     if pct>=85: return "#FF4444"
     if pct>=60: return "#FFD93D"
     return base
@@ -663,79 +762,15 @@ def file_hash(path):
         with open(path,"rb") as f: return hashlib.md5(f.read()).hexdigest()
     except Exception: return None
 
-def smooth_bar(pct, width, color):
+def smooth_bar(pct,width,color):
     t=Text(); fill=int(pct/100*width)
     t.append("[",style=f"dim {CLR['CLR_DIM']}"); t.append("#"*fill,style=f"bold {color}"); t.append("-"*(width-fill),style=f"dim {CLR['CLR_DIM']}"); t.append("]",style=f"dim {CLR['CLR_DIM']}")
     return t
 
-def spark_line(history, width, color):
+def spark_line(history,width,color):
     t=Text(); bars=" ........||||||||"
     for v in list(history)[-width:]: t.append(bars[min(16,int(v/100*16))],style=color)
     return t
-
-# ── Auto-updater ───────────────────────────────────────────────────────────────
-
-def check_for_update():
-    update_status["log"].append("connecting to github...")
-    try:
-        r=requests.get(GITHUB_RAW_URL,verify=False,timeout=8); r.raise_for_status()
-        remote_code=r.text; update_status["log"].append("comparing versions...")
-        script_path=os.path.join(THIS_DIR,"zzboard_public.py") if IS_EXE else THIS_FILE
-        if file_hash(script_path)!=hashlib.md5(remote_code.encode()).hexdigest():
-            update_status["log"].append("update found! downloading...")
-            time.sleep(0.4)
-            with open(script_path,"w",encoding="utf-8") as f: f.write(remote_code)
-            update_status["log"].append("update applied!")
-            update_status["updated"]=True
-        else:
-            update_status["log"].append("already up to date.")
-    except Exception:
-        update_status["log"].append("update check failed.")
-    update_status["checked"]=True
-
-def cat_screen(extra_line="", progress=None):
-    t=Text(justify="center"); t.append("\n")
-    colors=[CLR["CLR_CLOCK"],CLR["CLR_WEATHER"],CLR["CLR_MOON"],CLR["CLR_TASKS"],CLR["CLR_CPU"]]
-    for i,line in enumerate(ZZBOARD_LOGO): t.append(line+"\n",style=f"bold {colors[i%len(colors)]}")
-    t.append(f"{'  PUBLIC EDITION  -- made by @wtfplutolol with <3':^50}\n\n",style=f"dim {CLR['CLR_MOON']}")
-    for line in CAT_FRAMES[int(time.time()*3)%len(CAT_FRAMES)]: t.append(line+"\n",style=CLR["CLR_CLOCK"])
-    t.append("\n"); t.append(f"  {extra_line}\n",style=f"dim {CLR['CLR_WEATHER']}")
-    if progress is not None:
-        fill=int(progress)
-        t.append("\n  [",style=f"dim {CLR['CLR_DIM']}"); t.append("#"*fill,style=CLR["CLR_CLOCK"])
-        t.append("-"*(36-fill),style=f"dim {CLR['CLR_DIM']}"); t.append("]\n",style=f"dim {CLR['CLR_DIM']}")
-    return Align.center(t,vertical="middle")
-
-def show_update_screen():
-    done=threading.Event()
-    threading.Thread(target=lambda:[check_for_update(),done.set()],daemon=True).start()
-    while not done.is_set():
-        log=update_status["log"][-1] if update_status["log"] else "connecting..."
-        with Live(cat_screen(f"> {log}"),console=console,screen=True,refresh_per_second=10): time.sleep(0.15)
-    if update_status["updated"]:
-        with Live(cat_screen("> update applied! loading changelog..."),console=console,screen=True,refresh_per_second=10): time.sleep(2.0)
-        console.clear()
-        show_changelog()
-        do_restart()
-    else:
-        msg="> up to date!" if not update_status["error"] else "> continuing offline..."
-        with Live(cat_screen(msg),console=console,screen=True,refresh_per_second=10): time.sleep(1.5)
-def show_splash():
-    for tick in range(36):
-        step=LOADING_STEPS[min(tick//max(1,36//len(LOADING_STEPS)),len(LOADING_STEPS)-1)]
-        with Live(cat_screen(f"> {step}",tick),console=console,screen=True,refresh_per_second=10): time.sleep(0.1)
-    time.sleep(0.3)
-
-# ── File watcher ───────────────────────────────────────────────────────────────
-
-class ReloadHandler(FileSystemEventHandler):
-    def on_modified(self,event):
-        if os.path.abspath(event.src_path)==THIS_FILE: reload_flag.set()
-
-def start_watcher():
-    if IS_EXE or Observer is None: return
-    h=ReloadHandler(); o=Observer()
-    o.schedule(h,path=os.path.dirname(THIS_FILE) or ".",recursive=False); o.start()
 
 # ── Speed test ─────────────────────────────────────────────────────────────────
 
@@ -758,6 +793,17 @@ def fetch_speed():
         if mins==0: time.sleep(60); continue
         time.sleep(mins*60); run_speed_test()
 
+# ── File watcher ───────────────────────────────────────────────────────────────
+
+class ReloadHandler(FileSystemEventHandler):
+    def on_modified(self,event):
+        if os.path.abspath(event.src_path)==THIS_FILE: reload_flag.set()
+
+def start_watcher():
+    if IS_EXE or Observer is None: return
+    h=ReloadHandler(); o=Observer()
+    o.schedule(h,path=os.path.dirname(THIS_FILE) or ".",recursive=False); o.start()
+
 # ── System panels ──────────────────────────────────────────────────────────────
 
 def clock_panel():
@@ -765,8 +811,8 @@ def clock_panel():
     t=Text(justify="center"); t.append("\n")
     t.append(f"{now.strftime('%H')}{sep}{now.strftime('%M')}{sep}{now.strftime('%S')}",style=f"bold {CLR['CLR_CLOCK']}")
     t.append("\n"); t.append(now.strftime("%A, %d %B %Y").upper(),style=f"dim {CLR['CLR_WEATHER']}")
-    t.append("\n"); t.append(f"uptime  {uptime_str()}",style=f"italic dim {CLR['CLR_DIM']}"); t.append("\n")
-    return Panel(t,title=f"[{CLR['CLR_CLOCK']}]  -- Z Z B O A R D  PUBLIC v1.2 -- made by @wtfplutolol --  [/{CLR['CLR_CLOCK']}]",border_style=CLR["CLR_CLOCK"],box=box.DOUBLE,padding=(0,2))
+    t.append("\n"); t.append(f"uptime  {uptime_str()}  |  {CURRENT_VERSION}",style=f"italic dim {CLR['CLR_DIM']}"); t.append("\n")
+    return Panel(t,title=f"[{CLR['CLR_CLOCK']}]  -- Z Z B O A R D  PUBLIC {CURRENT_VERSION} -- made by @wtfplutolol --  [/{CLR['CLR_CLOCK']}]",border_style=CLR["CLR_CLOCK"],box=box.DOUBLE,padding=(0,2))
 
 def cpu_panel():
     pct=psutil.cpu_percent(interval=None); freq=psutil.cpu_freq(); CPU_HIST.append(pct); col=color_for(pct,CLR["CLR_CPU"])
@@ -897,17 +943,13 @@ def build_layout(cfg):
 # ── Entry ──────────────────────────────────────────────────────────────────────
 
 def main():
-    parser=argparse.ArgumentParser(description="ZZBoard Public v1.2")
+    parser=argparse.ArgumentParser(description="ZZBoard Public")
     parser.add_argument("--no-splash",action="store_true")
     args=parser.parse_args()
 
-    # Apply pink as default theme for splash
     apply_theme("pink")
-
     cfg=load_config()
     if not cfg.get("city"): cfg=first_launch_setup()
-
-    # Apply saved theme
     apply_theme(cfg.get("theme","pink"))
     _cfg_ref.update(cfg)
 
@@ -920,24 +962,17 @@ def main():
 
     if not args.no_splash:
         show_update_screen()
-
-        # Show changelog if updated
-        if update_status["updated"]:
-            show_changelog()
-            do_restart()
-
         show_splash()
 
-    # Handle force update applied while running
     try:
         with Live(build_layout(_cfg_ref),console=console,refresh_per_second=4,screen=True) as live:
             while True:
                 if reload_flag.is_set(): do_restart()
                 if update_status.get("updated") and update_status.get("checked"):
-                    # Force update was triggered from settings
-                    update_status["updated"] = False
+                    update_status["updated"]=False
                     show_changelog()
-                    do_restart()
+                    if IS_EXE: apply_exe_update_and_restart()
+                    else: do_restart()
                 time.sleep(0.25)
                 live.update(build_layout(_cfg_ref))
     except KeyboardInterrupt:
