@@ -120,13 +120,6 @@ pip install pyinstaller
 pyinstaller --onefile --icon=zzboard_public.ico zzboard_public.py
 ```
 
----
-
-## Screenshots not loading?
-
-Upload `system.png` and `splash.png` to the root of this repo and they will appear above automatically.
-
----
 
 ## License
 
