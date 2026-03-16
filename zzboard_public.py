@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #!/usr/bin/env python3
-# ZZBoard Public v1.1
+# ZZBoard Public v1.2
 # https://github.com/wtfplutolol/zzboard-public
 # Made by @wtfplutolol with <3
 # Requirements: pip install psutil rich requests speedtest-cli watchdog
@@ -66,6 +66,33 @@ THIS_DIR  = os.path.dirname(THIS_FILE)
 CONFIG_FILE    = os.path.join(THIS_DIR, "zzboard_config.json")
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/wtfplutolol/zzboard-public/main/zzboard_public.py"
 
+# ── Changelog ─────────────────────────────────────────────────────────────────
+CHANGELOG = [
+    ("v1.2", [
+        "Pink is now the default theme",
+        "City reset now shows a 5 second countdown then auto-restarts",
+        "City not found now shows a clear error instead of loading forever",
+        "Changelog screen added after updates",
+        "Enter key to dismiss changelog and enter dashboard",
+    ]),
+    ("v1.1", [
+        "Settings tab added (tab 6)",
+        "Theme switcher: green, blue, pink, amber, red",
+        "Temperature unit toggle (F/C)",
+        "Speed test interval setting",
+        "Force update check from settings",
+        "City reset from settings",
+    ]),
+    ("v1.0", [
+        "Initial public release",
+        "5 tabs: System, Sky, Storage, Speed, Games",
+        "Moon phase with ASCII art",
+        "Weather by city",
+        "Snake + Flappy Bird mini games",
+        "Auto-updater from GitHub",
+    ]),
+]
+
 # ── Themes ─────────────────────────────────────────────────────────────────────
 THEMES = {
     "green": {
@@ -104,7 +131,7 @@ CLR = {}
 
 def apply_theme(name):
     global CLR
-    CLR.update(THEMES.get(name, THEMES["green"]))
+    CLR.update(THEMES.get(name, THEMES["pink"]))
 
 # ── State ──────────────────────────────────────────────────────────────────────
 CPU_HIST        = deque([0.0] * 50, maxlen=50)
@@ -114,18 +141,18 @@ console         = Console()
 reload_flag     = threading.Event()
 current_tab     = {"tab": 1}
 settings_cursor = {"pos": 0}
-settings_msg    = {"text": "", "color": "#00FFB2", "time": 0}
+settings_msg    = {"text": "", "color": "#FF79C6", "time": 0}
 
 weather_cache = {"data": None, "error": None, "last": 0}
 speed_cache   = {"download": None, "upload": None, "ping": None, "testing": False, "last": 0, "error": None}
 update_status = {"checked": False, "updated": False, "error": None, "log": []}
-weather_meta  = {"url": None, "city": "Unknown", "country": ""}
+weather_meta  = {"url": None, "city": "Unknown", "country": "", "not_found": False}
 _cfg_ref      = {}
 
-# ── Config ─────────────────────────────────────────────────────────────────────
+# ── Config helpers ─────────────────────────────────────────────────────────────
 
 DEFAULT_CONFIG = {
-    "city": "", "theme": "green", "temp_unit": "F",
+    "city": "", "theme": "pink", "temp_unit": "F",
     "speed_interval": 30, "tasks": ["Review pull requests", "Update dependencies", "Write docs"]
 }
 
@@ -147,14 +174,79 @@ def save_config(cfg):
     except Exception:
         pass
 
-# ── Restart (safe, no antivirus triggers) ─────────────────────────────────────
+# ── Safe restart ───────────────────────────────────────────────────────────────
 
 def do_restart():
-    """Safe restart that works on Windows without triggering antivirus."""
     args = [THIS_FILE, "--no-splash"] if IS_EXE else [sys.executable, THIS_FILE, "--no-splash"]
-    subprocess.Popen(args, creationflags=subprocess.CREATE_NEW_CONSOLE if IS_EXE else 0)
+    try:
+        subprocess.Popen(args, creationflags=subprocess.CREATE_NEW_CONSOLE if IS_EXE else 0)
+    except Exception:
+        subprocess.Popen(args)
     time.sleep(1.0)
     sys.exit(0)
+
+def do_restart_fresh():
+    """Restart without --no-splash so setup runs again."""
+    args = [THIS_FILE] if IS_EXE else [sys.executable, THIS_FILE]
+    try:
+        subprocess.Popen(args, creationflags=subprocess.CREATE_NEW_CONSOLE if IS_EXE else 0)
+    except Exception:
+        subprocess.Popen(args)
+    time.sleep(1.0)
+    sys.exit(0)
+
+# ── City reset with countdown ──────────────────────────────────────────────────
+
+def city_reset_countdown():
+    """Show a 5 second countdown then restart for city setup."""
+    for i in range(5, 0, -1):
+        t = Text(justify="center")
+        t.append("\n\n\n")
+        t.append("  City has been reset!\n\n", style=f"bold {CLR['CLR_CLOCK']}")
+        t.append(f"  Restarting in {i}...\n\n", style=f"bold {CLR['CLR_WEATHER']}")
+        t.append("  You will be asked for your new city\n", style=f"dim {CLR['CLR_DIM']}")
+        with Live(Align.center(t, vertical="middle"), console=console, screen=True, refresh_per_second=10):
+            time.sleep(1.0)
+    do_restart_fresh()
+
+# ── Changelog screen ───────────────────────────────────────────────────────────
+
+def show_changelog():
+    """Show changelog after an update. User must press Enter to continue."""
+    while True:
+        t = Text(justify="center")
+        t.append("\n")
+        colors = [CLR["CLR_CLOCK"], CLR["CLR_WEATHER"], CLR["CLR_MOON"], CLR["CLR_TASKS"], CLR["CLR_CPU"]]
+        for i, line in enumerate(ZZBOARD_LOGO):
+            t.append(line + "\n", style=f"bold {colors[i % len(colors)]}")
+        t.append("\n")
+        t.append("  WHATS NEW\n\n", style=f"bold {CLR['CLR_CLOCK']}")
+
+        for version, changes in CHANGELOG:
+            t.append(f"  {version}\n", style=f"bold {CLR['CLR_WEATHER']}")
+            for change in changes:
+                t.append(f"    + {change}\n", style=f"dim {CLR['CLR_MOON']}")
+            t.append("\n")
+
+        t.append("\n")
+        t.append("  ----------------------------------------\n", style=f"dim {CLR['CLR_DIM']}")
+        t.append("  Press ENTER to go to the dashboard  >>  \n", style=f"bold {CLR['CLR_CLOCK']} reverse")
+        t.append("  ----------------------------------------\n", style=f"dim {CLR['CLR_DIM']}")
+
+        with Live(Align.center(t, vertical="middle"), console=console, screen=True, refresh_per_second=2):
+            time.sleep(0.1)
+
+        # Check for Enter key
+        try:
+            import msvcrt
+            if msvcrt.kbhit():
+                ch = msvcrt.getwch()
+                if ch == "\r":
+                    break
+        except Exception:
+            break
+
+        time.sleep(0.1)
 
 # ── First launch setup ─────────────────────────────────────────────────────────
 
@@ -178,12 +270,22 @@ def first_launch_setup():
     t.append("  Welcome! One-time setup\n\n", style=f"bold {CLR['CLR_CLOCK']}")
     console.print(Align.center(t))
 
-    city = console.input(f"  [{CLR['CLR_WEATHER']}]Your city for weather:[/{CLR['CLR_WEATHER']}] ").strip()
-    if not city:
-        city = "New York"
+    while True:
+        city = console.input(f"  [{CLR['CLR_WEATHER']}]Your city for weather (e.g. London, Tokyo, New York):[/{CLR['CLR_WEATHER']}] ").strip()
+        if not city:
+            city = "New York"
+
+        # Validate city exists
+        console.print(f"  [{CLR['CLR_DIM']}]Checking city...[/{CLR['CLR_DIM']}]")
+        url, name, country = get_weather_url(city)
+        if url:
+            console.print(f"  [bold {CLR['CLR_CLOCK']}]Found: {name}, {country}[/bold {CLR['CLR_CLOCK']}]")
+            break
+        else:
+            console.print(f"  [bold #FF4444]City '{city}' not found! Please try again.[/bold #FF4444]")
 
     cfg = dict(DEFAULT_CONFIG)
-    cfg["city"] = city
+    cfg["city"] = name
     save_config(cfg)
     console.print(f"\n  [bold {CLR['CLR_CLOCK']}]All set! Starting ZZBoard...[/bold {CLR['CLR_CLOCK']}]\n")
     time.sleep(1.5)
@@ -238,8 +340,14 @@ WEATHER_CODES = {
 
 def get_weather_url(city):
     try:
-        geo = requests.get(f"https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1", verify=False, timeout=5).json()
-        r   = geo["results"][0]
+        geo = requests.get(
+            f"https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1",
+            verify=False, timeout=5
+        ).json()
+        results = geo.get("results")
+        if not results:
+            return None, city, ""
+        r   = results[0]
         lat, lon = r["latitude"], r["longitude"]
         url = (f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
                f"&current=temperature_2m,weathercode,windspeed_10m,relative_humidity_2m"
@@ -250,9 +358,13 @@ def get_weather_url(city):
 
 def fetch_weather(city):
     url, name, country = get_weather_url(city)
-    weather_meta.update({"url": url, "city": name, "country": country})
+    if not url:
+        weather_meta.update({"url": None, "city": city, "country": "", "not_found": True})
+        weather_cache["error"] = f"City '{city}' not found. Go to Settings > Reset City."
+        return
+    weather_meta.update({"url": url, "city": name, "country": country, "not_found": False})
     while True:
-        if time.time() - weather_cache["last"] > 300 and weather_meta["url"]:
+        if time.time() - weather_cache["last"] > 300:
             try:
                 r = requests.get(weather_meta["url"], verify=False, timeout=5)
                 r.raise_for_status()
@@ -267,7 +379,14 @@ def weather_panel(temp_unit="F"):
     t = Text()
     t.append("\n")
     d = weather_cache["data"]
-    if not d:
+
+    if weather_meta.get("not_found"):
+        t.append(f"  City not found!\n\n",               style=f"bold #FF4444")
+        t.append(f"  '{weather_meta['city']}' could not be located.\n\n", style=f"dim {CLR['CLR_DIM']}")
+        t.append(f"  Go to tab 6 SETTINGS\n",            style=f"dim {CLR['CLR_WEATHER']}")
+        t.append(f"  and select Reset City\n",           style=f"dim {CLR['CLR_WEATHER']}")
+        t.append(f"  to enter a new city.\n",            style=f"dim {CLR['CLR_WEATHER']}")
+    elif not d:
         t.append(f"  {weather_cache.get('error') or 'fetching...'}\n", style=f"dim {CLR['CLR_DIM']}")
     else:
         try:
@@ -402,7 +521,7 @@ def settings_label(key, value):
 def settings_panel(cfg):
     t = Text()
     t.append("\n")
-    t.append("  Arrow keys to navigate   Left/Right or Enter to change\n\n", style=f"dim {CLR['CLR_DIM']}")
+    t.append("  Arrow keys navigate   Left/Right or Enter to change\n\n", style=f"dim {CLR['CLR_DIM']}")
     pos = settings_cursor["pos"]
 
     for i, (label, key, options) in enumerate(SETTINGS_ITEMS):
@@ -425,12 +544,12 @@ def settings_panel(cfg):
                     t.append(f"  {opt_str}  ", style=f"dim {CLR['CLR_DIM']}")
             t.append("\n")
 
-    if settings_msg["text"] and time.time() - settings_msg["time"] < 3:
+    if settings_msg["text"] and time.time() - settings_msg["time"] < 4:
         t.append(f"\n  {settings_msg['text']}\n", style=f"bold {settings_msg['color']}")
 
     t.append(f"\n  Theme preview:\n", style=f"dim {CLR['CLR_DIM']}")
     for name, colors in THEMES.items():
-        marker = " [*]" if name == cfg.get("theme","green") else "  o "
+        marker = " [*]" if name == cfg.get("theme","pink") else "  o "
         t.append(f"  {marker} {name}\n", style=f"bold {colors['CLR_CLOCK']}")
 
     return Panel(t, title=f"[{CLR['CLR_CLOCK']}]> SETTINGS[/{CLR['CLR_CLOCK']}]", border_style=CLR["CLR_CLOCK"], box=box.ROUNDED)
@@ -447,9 +566,9 @@ def handle_settings_input(ch, cfg):
         elif arrow == "P":
             settings_cursor["pos"] = (pos + 1) % len(SETTINGS_ITEMS)
         elif arrow in ("K","M") and options:
-            val   = cfg.get(key, options[0])
-            idx   = options.index(val) if val in options else 0
-            delta = -1 if arrow == "K" else 1
+            val     = cfg.get(key, options[0])
+            idx     = options.index(val) if val in options else 0
+            delta   = -1 if arrow == "K" else 1
             new_val = options[(idx + delta) % len(options)]
             cfg[key] = new_val
             save_config(cfg)
@@ -461,7 +580,8 @@ def handle_settings_input(ch, cfg):
         if key == "_reset_city":
             cfg["city"] = ""
             save_config(cfg)
-            settings_msg.update({"text": "City reset! Restart to set new city.", "color": CLR["CLR_WEATHER"], "time": time.time()})
+            settings_msg.update({"text": "Restarting in 5 seconds...", "color": "#FF4444", "time": time.time()})
+            threading.Thread(target=city_reset_countdown, daemon=False).start()
         elif key == "_force_update":
             update_status.update({"checked": False, "updated": False, "error": None, "log": []})
             threading.Thread(target=check_for_update, daemon=True).start()
@@ -592,9 +712,8 @@ def show_update_screen():
     while not done.is_set():
         log=update_status["log"][-1] if update_status["log"] else "connecting..."
         with Live(cat_screen(f"> {log}"),console=console,screen=True,refresh_per_second=10): time.sleep(0.15)
-    msg="> updated! restarting..." if update_status["updated"] else "> up to date!" if not update_status["error"] else "> continuing offline..."
-    with Live(cat_screen(msg),console=console,screen=True,refresh_per_second=10): time.sleep(2.0)
-    if update_status["updated"]: do_restart()
+    msg="> updated!" if update_status["updated"] else "> up to date!" if not update_status["error"] else "> continuing offline..."
+    with Live(cat_screen(msg),console=console,screen=True,refresh_per_second=10): time.sleep(1.5)
 
 def show_splash():
     for tick in range(36):
@@ -642,7 +761,7 @@ def clock_panel():
     t.append(f"{now.strftime('%H')}{sep}{now.strftime('%M')}{sep}{now.strftime('%S')}",style=f"bold {CLR['CLR_CLOCK']}")
     t.append("\n"); t.append(now.strftime("%A, %d %B %Y").upper(),style=f"dim {CLR['CLR_WEATHER']}")
     t.append("\n"); t.append(f"uptime  {uptime_str()}",style=f"italic dim {CLR['CLR_DIM']}"); t.append("\n")
-    return Panel(t,title=f"[{CLR['CLR_CLOCK']}]  -- Z Z B O A R D  PUBLIC v1.1 -- made by @wtfplutolol --  [/{CLR['CLR_CLOCK']}]",border_style=CLR["CLR_CLOCK"],box=box.DOUBLE,padding=(0,2))
+    return Panel(t,title=f"[{CLR['CLR_CLOCK']}]  -- Z Z B O A R D  PUBLIC v1.2 -- made by @wtfplutolol --  [/{CLR['CLR_CLOCK']}]",border_style=CLR["CLR_CLOCK"],box=box.DOUBLE,padding=(0,2))
 
 def cpu_panel():
     pct=psutil.cpu_percent(interval=None); freq=psutil.cpu_freq(); CPU_HIST.append(pct); col=color_for(pct,CLR["CLR_CPU"])
@@ -773,16 +892,18 @@ def build_layout(cfg):
 # ── Entry ──────────────────────────────────────────────────────────────────────
 
 def main():
-    parser=argparse.ArgumentParser(description="ZZBoard Public v1.1")
+    parser=argparse.ArgumentParser(description="ZZBoard Public v1.2")
     parser.add_argument("--no-splash",action="store_true")
     args=parser.parse_args()
 
-    apply_theme("green")
+    # Apply pink as default theme for splash
+    apply_theme("pink")
 
     cfg=load_config()
     if not cfg.get("city"): cfg=first_launch_setup()
 
-    apply_theme(cfg.get("theme","green"))
+    # Apply saved theme
+    apply_theme(cfg.get("theme","pink"))
     _cfg_ref.update(cfg)
 
     threading.Thread(target=lambda:fetch_weather(cfg["city"]),daemon=True).start()
@@ -794,18 +915,23 @@ def main():
 
     if not args.no_splash:
         show_update_screen()
+
+        # Show changelog if updated
+        if update_status["updated"]:
+            show_changelog()
+            do_restart()
+
         show_splash()
 
-    # If updated during splash, restart now
-    if update_status["updated"]:
-        do_restart()
-
+    # Handle force update applied while running
     try:
         with Live(build_layout(_cfg_ref),console=console,refresh_per_second=4,screen=True) as live:
             while True:
                 if reload_flag.is_set(): do_restart()
-                # Check if force update was applied
                 if update_status.get("updated") and update_status.get("checked"):
+                    # Force update was triggered from settings
+                    update_status["updated"] = False
+                    show_changelog()
                     do_restart()
                 time.sleep(0.25)
                 live.update(build_layout(_cfg_ref))
