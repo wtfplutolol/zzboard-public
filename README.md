@@ -120,7 +120,7 @@ The exe will be in the `dist` folder.
 
 ## Credits
 
-Built by [@wtfplutolol](https://github.com/wtfplutolol)
+Built by [@wtfplutolol](https://github.com/wtfplutolol) with ❤️
 
 ---
 
