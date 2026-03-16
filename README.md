@@ -13,9 +13,11 @@
 
 ---
 
-## Screenshots
+## System Tab
 
 ![System Tab](https://raw.githubusercontent.com/wtfplutolol/zzboard-public/main/system.png)
+
+## Boot Screen
 
 ![Boot Screen](https://raw.githubusercontent.com/wtfplutolol/zzboard-public/main/splash.png)
 
