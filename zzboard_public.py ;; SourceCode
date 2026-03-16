@@ -206,6 +206,9 @@ def key_reader():
                     ch2 = msvcrt.getwch()
                     with key_lock:
                         key_queue.append(("arrow", ch2))
+                elif ch in ("\r", "\n"):
+                    with key_lock:
+                        key_queue.append(("char", "\r"))
                 else:
                     with key_lock:
                         key_queue.append(("char", ch.lower()))
@@ -544,7 +547,7 @@ def process_settings_key(ktype, kval, cfg):
         elif kval=="s": settings_cursor["pos"]=(pos+1)%len(items)
         elif kval=="a": cycle(-1)
         elif kval=="d": cycle(1)
-        elif kval=="\r":
+        elif kval in ("\r", "\n", "\r\n"):
             if key=="_reset_city":
                 cfg["city"]=""; save_config(cfg)
                 settings_msg.update({"text":"resetting ~","color":"#FF4444","time":time.time()})
@@ -718,7 +721,7 @@ def show_changelog():
         import msvcrt
         while True:
             ch=msvcrt.getwch()
-            if ch=="\r": break
+            if ch in ("\r", "\n"): break
             time.sleep(0.05)
     except Exception: time.sleep(3.0)
 
@@ -1064,12 +1067,16 @@ def main():
     if not args.no_splash:
         show_update_screen()
         show_splash()
+    else:
+        # Coming from an update restart — mark as already checked so we don't loop
+        update_status["checked"] = True
+        update_status["updated"] = False
 
     try:
         with Live(build_layout(_cfg_ref),console=console,refresh_per_second=3,screen=True) as live:
             while True:
                 if reload_flag.is_set(): do_restart()
-                if update_status.get("updated") and update_status.get("checked"):
+                if update_status.get("updated") and update_status.get("checked") and not args.no_splash:
                     update_status["updated"]=False
                     show_changelog()
                     if IS_EXE: apply_exe_update_and_restart()
