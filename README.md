@@ -1,6 +1,6 @@
 # ZZBoard Public
 
-> A cozy, cat-powered terminal dashboard. Open source, fully customizable, and built to make your desktop feel alive.
+> A cozy, cat-powered terminal dashboard. Open source, fully customizable, and built to make your desktop feel alive. Fully open source.
 
 ```
   ________ ______  ____  ____  ____  ____  ____
