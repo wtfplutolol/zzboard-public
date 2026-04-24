@@ -121,6 +121,10 @@ Go to [Releases](../../releases/latest) and download `zzboard_public.exe`. Doubl
 
 > **Windows SmartScreen** may show a warning on first launch. Click **More info** then **Run anyway**. This is normal for unsigned open source apps and only appears once.
 
+> **Not working?** Try Right-click the exe → Properties → check **Unblock** at the bottom → OK. This happens because the exe is new and hasn't built up download history yet. The source code is fully public if you'd like to verify or build it yourself.
+
+---
+
 ---
 
 ## Auto-Updates
